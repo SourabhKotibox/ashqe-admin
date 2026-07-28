@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Production: site origin only. API paths already start with /api/...
 // Local: set VITE_API_URL=http://localhost:3000 in .env.local
-let baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://tataiya.in" : "http://localhost:3000");
+let baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://ashqe.app" : "http://localhost:3000");
 let getAuthToken = () => localStorage.getItem("appAccessToken");
 
 export const getActiveProfileId = (): string | null => {
@@ -28,9 +28,9 @@ export const getImageUrl = (filePath) => {
   if (!filePath) return "";
 
   if (filePath.startsWith("http") || filePath.startsWith("data:") || filePath.startsWith("blob:")) {
-    // Old bug: S3 files were saved as https://tataiya.in/uploads/media/...
+    // Old bug: S3 files were saved as https://ashqe.app/uploads/media/...
     // Rewrite those to the real S3 public URL.
-    const m = filePath.match(/^https?:\/\/(?:www\.)?tataiya\.in\/uploads\/(media\/.+)$/i);
+    const m = filePath.match(/^https?:\/\/(?:www\.)?ashqe\.app\/uploads\/(media\/.+)$/i);
     if (m) {
       const s3Base =
         import.meta.env.VITE_S3_PUBLIC_BASE ||
@@ -55,7 +55,7 @@ export const getImageUrl = (filePath) => {
         "https://tatiyatv.s3.eu-north-1.amazonaws.com";
       return `${String(s3Base).replace(/\/$/, "")}/${key}`;
     }
-    const origin = String(baseUrl || "").replace(/\/api\/?$/, "") || "https://tataiya.in";
+    const origin = String(baseUrl || "").replace(/\/api\/?$/, "") || "https://ashqe.app";
     return `${origin}/${cleanPath}`;
   }
 
@@ -69,7 +69,7 @@ export const getImageUrl = (filePath) => {
     return `${String(s3Base).replace(/\/$/, "")}/${cleanPath}`;
   }
 
-  const origin = String(baseUrl || "").replace(/\/api\/?$/, "") || "https://tataiya.in";
+  const origin = String(baseUrl || "").replace(/\/api\/?$/, "") || "https://ashqe.app";
   return `${origin}/uploads/${cleanPath}`;
 };
 
@@ -1547,14 +1547,14 @@ export const uploadMediaFiles = async (
         else
           reject(
             new Error(
-              `S3 upload failed (${xhr.status}): ${String(xhr.responseText || '').slice(0, 160) || 'check bucket CORS for PUT from https://tataiya.in'}`
+              `S3 upload failed (${xhr.status}): ${String(xhr.responseText || '').slice(0, 160) || 'check bucket CORS for PUT from https://ashqe.app'}`
             )
           );
       });
       xhr.addEventListener('error', () =>
         reject(
           new Error(
-            'S3 network/CORS error. Ensure bucket CORS allows PUT from https://tataiya.in with Content-Type header.'
+            'S3 network/CORS error. Ensure bucket CORS allows PUT from https://ashqe.app with Content-Type header.'
           )
         )
       );
@@ -1590,7 +1590,7 @@ export const uploadMediaFiles = async (
         if (file.size >= 20 * 1024 * 1024) {
           throw new Error(
             err?.message ||
-              'Direct S3 upload failed for this large file. Check S3 bucket CORS allows PUT from https://tataiya.in, then retry.'
+              'Direct S3 upload failed for this large file. Check S3 bucket CORS allows PUT from https://ashqe.app, then retry.'
           );
         }
         console.warn('Direct S3 upload failed, queueing for multipart:', err);
@@ -3679,7 +3679,7 @@ export const cacheDownloadedVideo = async (
   try {
     response = await fetch(cleanUrl, { mode: 'cors', credentials: 'omit' });
   } catch (err) {
-    console.warn('Offline fetch failed (check S3 CORS for GET from https://tataiya.in):', err);
+    console.warn('Offline fetch failed (check S3 CORS for GET from https://ashqe.app):', err);
     return false;
   }
   if (!response.ok || !response.body) {
