@@ -42,10 +42,11 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
 
 // Color themes data
 const COLOR_THEMES = [
+  { id: "orange", a: "#FF8C38", b: "#F97316" },
   { id: "blue-green", a: "#3b82f6", b: "#10b981" },
-  { id: "orange-yellow", a: "#f97316", b: "#eab308" },
+  { id: "orange-yellow", a: "#FF8C38", b: "#F97316" },
   { id: "pink-purple", a: "#ec4899", b: "#a855f7" },
-  { id: "purple-orange", a: "#8b5cf6", b: "#f97316" },
+  { id: "purple-orange", a: "#8b5cf6", b: "#FF8C38" },
   { id: "green-pink", a: "#22c55e", b: "#ec4899" },
 ];
 

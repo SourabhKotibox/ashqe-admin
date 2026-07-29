@@ -3906,7 +3906,7 @@ export const openRazorpayCheckout = async (opts: RazorpayOptions): Promise<void>
     name: opts.name,
     description: opts.description,
     prefill: opts.prefill || {},
-    theme: opts.theme || { color: '#FFB800' },
+    theme: opts.theme || { color: '#FF8C38' },
     handler: (response: any) => opts.onSuccess(response),
     modal: {
       ondismiss: () => opts.onDismiss?.(),

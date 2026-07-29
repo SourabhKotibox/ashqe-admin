@@ -5,6 +5,20 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Remap amber utilities to Ashqe logo orange across the UI
+        amber: {
+          50: "#FFF4EC",
+          100: "#FFE4D1",
+          200: "#FFC9A3",
+          300: "#FFAB70",
+          400: "#FF8C38",
+          500: "#F97316",
+          600: "#EA580C",
+          700: "#C2410C",
+          800: "#9A3412",
+          900: "#7C2D12",
+          950: "#431407",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

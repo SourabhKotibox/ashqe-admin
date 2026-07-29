@@ -27,7 +27,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-const COLORS = ["#FFB800", "#F59E0B", "#D97706", "#B45309", "#92400E"];
+const COLORS = ["#FF8C38", "#F59E0B", "#D97706", "#B45309", "#92400E"];
 
 const defaultDateRange = () => {
   const end = new Date();
@@ -322,15 +322,15 @@ export default function Dashboard() {
                   <AreaChart data={revenueData}>
                     <defs>
                       <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#FFB800" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#FFB800" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#FF8C38" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#FF8C38" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} vertical={false} />
                     <XAxis dataKey="name" stroke={chartColors.axis} tick={{ fill: chartColors.axis, fontSize: 11 }} />
                     <YAxis stroke={chartColors.axis} tick={{ fill: chartColors.axis, fontSize: 11 }} />
-                    <Tooltip contentStyle={{ backgroundColor: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "10px" }} labelStyle={{ color: chartColors.tooltipLabel }} itemStyle={{ color: "#FFB800" }} />
-                    <Area type="monotone" dataKey="value" name="Revenue" stroke="#FFB800" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRev)" />
+                    <Tooltip contentStyle={{ backgroundColor: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "10px" }} labelStyle={{ color: chartColors.tooltipLabel }} itemStyle={{ color: "#FF8C38" }} />
+                    <Area type="monotone" dataKey="value" name="Revenue" stroke="#FF8C38" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRev)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -366,7 +366,7 @@ export default function Dashboard() {
                     <YAxis stroke={chartColors.axis} tick={{ fill: chartColors.axis, fontSize: 11 }} />
                     <Tooltip contentStyle={{ backgroundColor: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "10px" }} labelStyle={{ color: chartColors.tooltipLabel }} />
                     <Legend wrapperStyle={{ color: chartColors.tooltipLabel, fontSize: 12 }} />
-                    <Bar dataKey="basic" fill="#FFB800" radius={[4, 4, 0, 0]} name="Basic" />
+                    <Bar dataKey="basic" fill="#FF8C38" radius={[4, 4, 0, 0]} name="Basic" />
                     <Bar dataKey="premium" fill="#B45309" radius={[4, 4, 0, 0]} name="Premium" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -406,7 +406,7 @@ export default function Dashboard() {
                     <YAxis stroke={chartColors.axis} tick={{ fill: chartColors.axis, fontSize: 11 }} />
                     <Tooltip contentStyle={{ backgroundColor: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "10px" }} labelStyle={{ color: chartColors.tooltipLabel }} />
                     <Legend wrapperStyle={{ color: chartColors.tooltipLabel, fontSize: 12 }} />
-                    <Bar dataKey="movies" fill="#FFB800" radius={[4, 4, 0, 0]} name="Movies" />
+                    <Bar dataKey="movies" fill="#FF8C38" radius={[4, 4, 0, 0]} name="Movies" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

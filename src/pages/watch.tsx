@@ -2183,7 +2183,7 @@ export default function WatchPage() {
                   {toggleLikeMutation.isPending ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <Heart className={`w-5 h-5 ${isLiked ? "fill-[#FFB800]" : ""}`} />
+                    <Heart className={`w-5 h-5 ${isLiked ? "fill-[#FF8C38]" : ""}`} />
                   )}
                   <span className="text-[11px] font-semibold mt-0.5">{fmtCount(detail.likes + (isLiked ? 1 : 0))} Likes</span>
                 </button>

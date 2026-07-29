@@ -504,7 +504,7 @@ export default function UserProfilePage() {
         className="pointer-events-none fixed inset-x-0 top-0 h-[420px] opacity-90 z-0"
         style={{
           background:
-            "radial-gradient(ellipse 70% 55% at 50% -15%, rgba(255,184,0,0.16), transparent 55%), linear-gradient(180deg, #12100a 0%, #030306 72%)",
+            "radial-gradient(ellipse 70% 55% at 50% -15%, rgba(255,140,56,0.16), transparent 55%), linear-gradient(180deg, #12100a 0%, #030306 72%)",
         }}
       />
 
@@ -543,7 +543,7 @@ export default function UserProfilePage() {
           <div className="lg:col-span-4 space-y-4 sm:space-y-5">
             
             {/* Profile Card */}
-            <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-b from-[#14121a] to-[#0c0c12] shadow-[0_24px_80px_-40px_rgba(255,184,0,0.35)]">
+            <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-b from-[#14121a] to-[#0c0c12] shadow-[0_24px_80px_-40px_rgba(255,140,56,0.35)]">
               <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-amber-400/15 to-transparent pointer-events-none" />
               <div className="relative p-6 flex flex-col items-center text-center">
                 <div className="relative mb-4">

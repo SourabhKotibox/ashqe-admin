@@ -801,7 +801,7 @@ function NewHotTab({ onPlay, showToast }: { onPlay: (item: ContentItem) => void;
         className="pointer-events-none absolute inset-x-0 top-0 h-[420px] opacity-90"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,184,0,0.18), transparent 55%), linear-gradient(180deg, #12100a 0%, #030306 70%)",
+            "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,140,56,0.18), transparent 55%), linear-gradient(180deg, #12100a 0%, #030306 70%)",
         }}
       />
 
@@ -824,7 +824,7 @@ function NewHotTab({ onPlay, showToast }: { onPlay: (item: ContentItem) => void;
                 onClick={() => setFilter(f.key)}
                 className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all ${
                   filter === f.key
-                    ? "bg-amber-400 text-black shadow-[0_8px_24px_rgba(255,184,0,0.35)]"
+                    ? "bg-amber-400 text-black shadow-[0_8px_24px_rgba(255,140,56,0.35)]"
                     : "bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 hover:text-white"
                 }`}
               >
@@ -847,7 +847,7 @@ function NewHotTab({ onPlay, showToast }: { onPlay: (item: ContentItem) => void;
             {featured && (
               <article
                 onClick={() => onPlay(featured)}
-                className="group relative overflow-hidden rounded-3xl border border-amber-400/20 bg-[#0c0c10] cursor-pointer shadow-[0_24px_80px_-40px_rgba(255,184,0,0.45)]"
+                className="group relative overflow-hidden rounded-3xl border border-amber-400/20 bg-[#0c0c10] cursor-pointer shadow-[0_24px_80px_-40px_rgba(255,140,56,0.45)]"
               >
                 <div className="grid md:grid-cols-[1.15fr_1fr] min-h-[280px]">
                   <div className="relative aspect-[16/10] md:aspect-auto md:min-h-[320px]">
@@ -928,7 +928,7 @@ function NewHotTab({ onPlay, showToast }: { onPlay: (item: ContentItem) => void;
                       <article
                         key={id}
                         onClick={() => onPlay(item)}
-                        className="group rounded-2xl overflow-hidden bg-[#0e0e14] border border-white/8 hover:border-amber-400/30 transition-all cursor-pointer hover:shadow-[0_16px_48px_-24px_rgba(255,184,0,0.4)]"
+                        className="group rounded-2xl overflow-hidden bg-[#0e0e14] border border-white/8 hover:border-amber-400/30 transition-all cursor-pointer hover:shadow-[0_16px_48px_-24px_rgba(255,140,56,0.4)]"
                       >
                         <div className="relative aspect-[16/9] bg-black overflow-hidden">
                           <img

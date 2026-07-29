@@ -138,7 +138,7 @@ export function PortraitCard({
     >
       {/* Image container */}
       <div
-        className="relative rounded-lg sm:rounded-xl overflow-hidden bg-zinc-900 group-hover:ring-2 group-hover:ring-amber-400/50 group-hover:shadow-[0_12px_40px_-12px_rgba(255,184,0,0.45)] transition-all duration-300"
+        className="relative rounded-lg sm:rounded-xl overflow-hidden bg-zinc-900 group-hover:ring-2 group-hover:ring-amber-400/50 group-hover:shadow-[0_12px_40px_-12px_rgba(255,140,56,0.45)] transition-all duration-300"
         style={{ aspectRatio: "2/3" }}
       >
         {/* Poster image */}

@@ -276,7 +276,7 @@ export default function MovieDetailPage() {
                   setLocation(`/watch/${id}`);
                 }
               }}
-              className="flex-1 min-w-[140px] sm:flex-none flex items-center justify-center gap-2 px-6 sm:px-9 py-3.5 font-black rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98] bg-amber-400 hover:bg-amber-300 text-black shadow-[0_8px_28px_rgba(251,191,36,0.35)]"
+              className="flex-1 min-w-[140px] sm:flex-none flex items-center justify-center gap-2 px-6 sm:px-9 py-3.5 font-black rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98] bg-amber-400 hover:bg-amber-300 text-black shadow-[0_8px_28px_rgba(255,140,56,0.35)]"
             >
               {isLocked ? <Crown className="w-4 h-4 fill-black shrink-0" /> : <Play className="w-4 h-4 fill-black shrink-0" />}
               {isLocked ? "Unlock Now" : "Watch Now"}
