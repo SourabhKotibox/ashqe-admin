@@ -180,15 +180,15 @@ const DEFAULT: AppSettings = {
   activeMenuStyle: 'left-bordered',
   footerStyle: 'default',
   // Mail
-  mailEmail: "info@tripleminds.com",
+  mailEmail: "info@ashqe.app",
   mailDriver: "smtp",
   mailHost: "smtp.gmail.com",
   mailPort: "587",
   mailEncryption: "tls",
   mailUsername: "",
   mailPassword: "",
-  mailFrom: "info@tripleminds.com",
-  mailFromName: "Triple Minds",
+  mailFrom: "info@ashqe.app",
+  mailFromName: "Ashqe",
   // Notifications
   fcmServerKey: "",
   fcmSenderId: "",
@@ -248,27 +248,60 @@ const DEFAULT: AppSettings = {
   razorpayKeySecret: "",
 };
 
-const STORAGE_KEY = "tripleMindesSettings";
+const STORAGE_KEY = "ashqeSettings";
+const LEGACY_BRAND_RE = /tataiya|triple\s*minds?/i;
+
+function isLegacyBrandValue(value?: string | null): boolean {
+  return !!value && LEGACY_BRAND_RE.test(String(value));
+}
 
 function mapApiData(api: any): AppSettings {
   const img = (v: string) => (v ? getImageUrl(v) : "");
+  const platformName = isLegacyBrandValue(api.platformName)
+    ? DEFAULT.platformName
+    : (api.platformName || DEFAULT.platformName);
+  const copyrightText = isLegacyBrandValue(api.copyrightText)
+    ? DEFAULT.copyrightText
+    : (api.copyrightText || DEFAULT.copyrightText);
+  const loginSubtitle = isLegacyBrandValue(api.loginSubtitle)
+    ? DEFAULT.loginSubtitle
+    : (api.loginSubtitle || DEFAULT.loginSubtitle);
+  const mailFromName = isLegacyBrandValue(api.mailFromName)
+    ? DEFAULT.mailFromName
+    : (api.mailFromName || DEFAULT.mailFromName);
+
+  const logoUrlRaw = img(api.logoUrl);
+  const darkLogoRaw = img(api.darkLogoUrl);
+  const lightLogoRaw = img(api.lightLogoUrl);
+  const faviconRaw = img(api.faviconUrl);
+
+  const useAshqeLogo =
+    isLegacyBrandValue(api.platformName) ||
+    isLegacyBrandValue(logoUrlRaw) ||
+    isLegacyBrandValue(darkLogoRaw) ||
+    isLegacyBrandValue(lightLogoRaw) ||
+    isLegacyBrandValue(faviconRaw) ||
+    !logoUrlRaw;
+
   return {
-    logoUrl: img(api.logoUrl) || DEFAULT.logoUrl,
-    darkLogoUrl: img(api.darkLogoUrl) || DEFAULT.darkLogoUrl,
-    lightLogoUrl: img(api.lightLogoUrl) || DEFAULT.lightLogoUrl,
-    faviconUrl: img(api.faviconUrl),
+    logoUrl: useAshqeLogo ? DEFAULT.logoUrl : (logoUrlRaw || DEFAULT.logoUrl),
+    darkLogoUrl: useAshqeLogo ? DEFAULT.darkLogoUrl : (darkLogoRaw || DEFAULT.darkLogoUrl),
+    lightLogoUrl: useAshqeLogo ? DEFAULT.lightLogoUrl : (lightLogoRaw || DEFAULT.lightLogoUrl),
+    faviconUrl: useAshqeLogo ? DEFAULT.faviconUrl : (faviconRaw || DEFAULT.faviconUrl),
     logoStyle: api.logoStyle || DEFAULT.logoStyle,
-    platformName: api.platformName || DEFAULT.platformName,
+    platformName,
     contactNo: api.contactNo || "",
     inquiryEmail: api.inquiryEmail || "",
-    siteDescription: api.siteDescription || "",
-    copyrightText: api.copyrightText || "",
+    siteDescription: isLegacyBrandValue(api.siteDescription)
+      ? DEFAULT.siteDescription
+      : (api.siteDescription || ""),
+    copyrightText,
     facebookUrl: api.facebookUrl || "",
     twitterUrl: api.twitterUrl || "",
     instagramUrl: api.instagramUrl || "",
     youtubeUrl: api.youtubeUrl || "",
     loginTitle: api.loginTitle || DEFAULT.loginTitle,
-    loginSubtitle: api.loginSubtitle || DEFAULT.loginSubtitle,
+    loginSubtitle,
     loginButtonText: api.loginButtonText || DEFAULT.loginButtonText,
     headerCode: api.headerCode || "",
     footerCode: api.footerCode || "",
@@ -298,8 +331,8 @@ function mapApiData(api: any): AppSettings {
     vipTitle: api.vipTitle || DEFAULT.vipTitle,
     vipHighlight: api.vipHighlight || DEFAULT.vipHighlight,
     vipSubtitle: api.vipSubtitle || DEFAULT.vipSubtitle,
-    primaryColor: api.primaryColor || DEFAULT.primaryColor,
-    colorTheme: api.colorTheme || DEFAULT.colorTheme,
+    primaryColor: isLegacyBrandValue(api.primaryColor) ? DEFAULT.primaryColor : (api.primaryColor || DEFAULT.primaryColor),
+    colorTheme: api.colorTheme === 'blue-green' || !api.colorTheme ? DEFAULT.colorTheme : api.colorTheme,
     navbarStyle: api.navbarStyle || DEFAULT.navbarStyle,
     navbarHide: api.navbarHide ?? DEFAULT.navbarHide,
     cardStyle: api.cardStyle || DEFAULT.cardStyle,
@@ -314,8 +347,8 @@ function mapApiData(api: any): AppSettings {
     mailEncryption: api.mailEncryption || DEFAULT.mailEncryption,
     mailUsername: api.mailUsername || "",
     mailPassword: api.mailPassword || "",
-    mailFrom: api.mailFrom || "",
-    mailFromName: api.mailFromName || DEFAULT.mailFromName,
+    mailFrom: isLegacyBrandValue(api.mailFrom) ? DEFAULT.mailFrom : (api.mailFrom || ""),
+    mailFromName,
     // Notifications
     fcmServerKey: api.fcmServerKey || "",
     fcmSenderId: api.fcmSenderId || "",
@@ -456,19 +489,20 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
+      // Drop old Triple Minds / Tataiya cached settings
+      localStorage.removeItem("tripleMindesSettings");
+      localStorage.removeItem("tataiyaSettings");
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Clear stale imgur logo URLs
-        if (parsed.logoUrl?.includes("imgur.com")) parsed.logoUrl = "";
-        if (parsed.darkLogoUrl?.includes("imgur.com")) parsed.darkLogoUrl = "";
-        if (parsed.lightLogoUrl?.includes("imgur.com")) parsed.lightLogoUrl = "";
-        const s = { ...DEFAULT, ...parsed };
+        const s = mapApiData({ ...DEFAULT, ...parsed });
+        applyFavicon(s.faviconUrl);
         applyColorTheme(s.colorTheme);
         applyBodyClasses(s.cardStyle, s.menuStyle);
         return s;
       }
     } catch {}
+    applyFavicon(DEFAULT.faviconUrl);
     return DEFAULT;
   });
   const [isLoading, setIsLoading] = useState(false);
