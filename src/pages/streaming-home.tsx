@@ -1512,7 +1512,8 @@ export function PublicHeader({ activeTab, setActiveTab, onSignIn, onSignOut, use
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
-  const { data: notifData } = useGetPublicNotifications();
+  // Ashqe: never show public placeholder notifications
+  const notifData = { data: [] as any[] };
 
   const avatarRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);

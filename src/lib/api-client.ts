@@ -1182,13 +1182,14 @@ export const useGetPublicAds = (options?: { placement?: string; targetContentTyp
   });
 };
 
-export const getPublicNotifications = async () => api('/public/notifications');
+export const getPublicNotifications = async () => ({ success: true, data: [] });
 
 export const useGetPublicNotifications = () => {
   return useQuery({
     queryKey: ['public-notifications'],
     queryFn: getPublicNotifications,
-    staleTime: 2 * 60 * 1000,
+    staleTime: Infinity,
+    initialData: { success: true, data: [] },
     retry: false,
   });
 };
