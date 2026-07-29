@@ -24,6 +24,12 @@ type ApiOptions = RequestInit & {
   useAdminToken?: boolean;
 };
 
+// Must match Settings.awsBucket / awsRegion on the API, since the DB stores
+// bare object keys and the bucket host is prepended here.
+const S3_PUBLIC_BASE = (
+  import.meta.env.VITE_S3_PUBLIC_BASE || "https://ashqe-bucket-v1.s3.ap-south-1.amazonaws.com"
+).replace(/\/$/, "");
+
 export const getImageUrl = (filePath) => {
   if (!filePath) return "";
 
@@ -32,10 +38,7 @@ export const getImageUrl = (filePath) => {
     // Rewrite those to the real S3 public URL.
     const m = filePath.match(/^https?:\/\/(?:www\.)?ashqe\.app\/uploads\/(media\/.+)$/i);
     if (m) {
-      const s3Base =
-        import.meta.env.VITE_S3_PUBLIC_BASE ||
-        "https://tatiyatv.s3.eu-north-1.amazonaws.com";
-      return `${String(s3Base).replace(/\/$/, "")}/${m[1]}`;
+      return `${S3_PUBLIC_BASE}/${m[1]}`;
     }
     return filePath;
   }
@@ -50,10 +53,7 @@ export const getImageUrl = (filePath) => {
     // Rewrite /uploads/media/* → S3 (current production storage)
     if (cleanPath.startsWith("uploads/media/") || cleanPath.startsWith("media/")) {
       const key = cleanPath.replace(/^uploads\//, "");
-      const s3Base =
-        import.meta.env.VITE_S3_PUBLIC_BASE ||
-        "https://tatiyatv.s3.eu-north-1.amazonaws.com";
-      return `${String(s3Base).replace(/\/$/, "")}/${key}`;
+      return `${S3_PUBLIC_BASE}/${key}`;
     }
     const origin = String(baseUrl || "").replace(/\/api\/?$/, "") || "https://ashqe.app";
     return `${origin}/${cleanPath}`;
@@ -63,10 +63,7 @@ export const getImageUrl = (filePath) => {
 
   // S3 object keys look like "media/folder/file.png" (no uploads/ prefix)
   if (!cleanPath.startsWith("uploads/")) {
-    const s3Base =
-      import.meta.env.VITE_S3_PUBLIC_BASE ||
-      "https://tatiyatv.s3.eu-north-1.amazonaws.com";
-    return `${String(s3Base).replace(/\/$/, "")}/${cleanPath}`;
+    return `${S3_PUBLIC_BASE}/${cleanPath}`;
   }
 
   const origin = String(baseUrl || "").replace(/\/api\/?$/, "") || "https://ashqe.app";
