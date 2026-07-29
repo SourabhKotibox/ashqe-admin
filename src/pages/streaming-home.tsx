@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import {
   useGetWebHome, useGetWebBrowse, loginClient, registerClient, useGetPages,
-  useGetGenres, useGetPublicNotifications, useGetWebSubscriptionPlans,
+  useGetGenres, useGetWebSubscriptionPlans,
   useGetWatchHistory, useGetSections, useGetWebAllContent, getAppProfile,
   useGetWishlist, useToggleWishlist,
 } from "@/lib/api-client";
