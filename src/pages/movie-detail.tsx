@@ -349,7 +349,7 @@ export default function MovieDetailPage() {
                           toast({
                             title: ok ? "Saved offline on this device" : "Could not save full movie offline",
                             description: ok
-                              ? "Play without internet here in Tataiya."
+                              ? "Play without internet here in Ashqe."
                               : "Trailer cannot be saved as offline — need the full movie MP4. Try again after the movie finishes processing.",
                             variant: ok ? "default" : "destructive",
                           });

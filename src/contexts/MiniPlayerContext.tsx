@@ -208,8 +208,8 @@ export function MiniPlayerProvider({ children }: { children: ReactNode }) {
     try {
       const art = session.poster ? getImageUrl(session.poster) || session.poster : "";
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: session.title || "Tataiya",
-        artist: "Tataiya",
+        title: session.title || "Ashqe",
+        artist: "Ashqe",
         album: "Now Playing",
         artwork: art
           ? [

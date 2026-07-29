@@ -66,7 +66,7 @@ function ThemeApplier() {
     }
     
     // Convert primary color to HSL
-    const hsl = hexToHSL(primaryColor || "#e50914");
+    const hsl = hexToHSL(primaryColor || "#FF8C38");
     root.style.setProperty("--primary", `${hsl.h} ${hsl.s}% ${hsl.l}%`);
     root.style.setProperty("--sidebar-primary", `${hsl.h} ${hsl.s}% ${hsl.l}%`);
     root.style.setProperty("--destructive", `${hsl.h} ${hsl.s}% ${hsl.l}%`);
@@ -75,7 +75,7 @@ function ThemeApplier() {
   }, [settings.colorTheme, settings.primaryColor]);
 
   useEffect(() => {
-    const name = settings.platformName || "Flipshorts";
+    const name = settings.platformName || "Ashqe";
     
     // Convert path to a readable page name
     const pathSegments = location.split('/').filter(Boolean);

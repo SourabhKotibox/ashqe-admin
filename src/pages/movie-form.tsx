@@ -232,8 +232,8 @@ export default function MovieForm() {
       setTitle((prev) => prev || nextTitle);
       setOriginalTitle((prev) => prev || nextTitle);
       setSlug((prev) => prev || slugify(nextTitle));
-      setMetaTitle((prev) => prev || `${nextTitle} | Tataiya`);
-      setMetaDescription((prev) => prev || `Watch ${nextTitle} on Tataiya — 18+ movies streaming.`);
+      setMetaTitle((prev) => prev || `${nextTitle} | Ashqe`);
+      setMetaDescription((prev) => prev || `Watch ${nextTitle} on Ashqe — 18+ movies streaming.`);
       setTags((prev) => {
         if (prev.length) return prev;
         return nextTitle
@@ -246,7 +246,7 @@ export default function MovieForm() {
     if (nextYear) setYear((prev) => prev || nextYear);
     if (nextDuration) setDuration((prev) => prev || nextDuration);
 
-    // Tataiya is 18+ — set when still default/empty
+    // Ashqe is 18+ — set when still default/empty
     setAgeRating((prev) => (prev && prev !== "0" ? prev : "18"));
 
     const posterUrl = af.posterFrameUrl || media.posterFrameUrl;

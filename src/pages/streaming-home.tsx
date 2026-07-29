@@ -706,7 +706,7 @@ function formatFreshLabel(item: any): string {
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   }
   if (item.year) return String(item.year);
-  return "New on Tataiya";
+  return "New on Ashqe";
 }
 
 function contentBadgeLabel(item: any): string {
@@ -809,7 +809,7 @@ function NewHotTab({ onPlay, showToast }: { onPlay: (item: ContentItem) => void;
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/25 text-amber-400 text-[10px] font-bold uppercase tracking-[0.18em] mb-3">
-              <Flame className="w-3 h-3" /> Fresh on Tataiya
+              <Flame className="w-3 h-3" /> Fresh on Ashqe
             </div>
             <h2 className="text-white font-black text-3xl sm:text-4xl tracking-tight">New & Hot</h2>
             <p className="text-white/55 text-sm mt-2 max-w-md">

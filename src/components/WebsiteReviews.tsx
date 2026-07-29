@@ -145,7 +145,7 @@ export function WebsiteReviews({ user, onSignInRequired, variant = "full" }: Web
             What viewers say
           </h2>
           <p className="text-white/50 text-sm mt-1.5 max-w-md">
-            Honest ratings from people watching on Tataiya.
+            Honest ratings from people watching on Ashqe.
           </p>
         </div>
       </div>
@@ -229,7 +229,7 @@ export function WebsiteReviews({ user, onSignInRequired, variant = "full" }: Web
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder={user ? "What did you like about Tataiya? Streaming, movies, quality…" : "Sign in to leave a review"}
+                  placeholder={user ? "What did you like about Ashqe? Streaming, movies, quality…" : "Sign in to leave a review"}
                   maxLength={500}
                   rows={isCompact ? 3 : 4}
                   disabled={!user}
@@ -255,7 +255,7 @@ export function WebsiteReviews({ user, onSignInRequired, variant = "full" }: Web
                 <div className="w-12 h-12 rounded-full bg-amber-400/15 border border-amber-400/30 flex items-center justify-center mb-3">
                   <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
                 </div>
-                <p className="text-white font-bold text-sm">Thanks for reviewing Tataiya</p>
+                <p className="text-white font-bold text-sm">Thanks for reviewing Ashqe</p>
                 <p className="text-white/45 text-xs mt-1.5 max-w-xs">
                   Your feedback helps us improve streaming for everyone.
                 </p>
@@ -277,7 +277,7 @@ export function WebsiteReviews({ user, onSignInRequired, variant = "full" }: Web
           <div className="text-center py-12 rounded-2xl border border-white/8 bg-white/[0.02]">
             <MessageSquareQuote className="w-10 h-10 text-white/20 mx-auto mb-3" />
             <p className="text-white/70 text-sm font-semibold">No reviews yet</p>
-            <p className="text-white/40 text-xs mt-1">Be the first to share how Tataiya feels.</p>
+            <p className="text-white/40 text-xs mt-1">Be the first to share how Ashqe feels.</p>
           </div>
         ) : (
           <>

@@ -519,7 +519,7 @@ export default function UserProfilePage() {
               {getLogoUrl() ? (
                 <img src={getLogoUrl()} alt={settings.platformName} className="h-7 w-auto object-contain" />
               ) : (
-                <h1 className="text-white font-black text-lg tracking-tight truncate">{settings.platformName || "Tataiya"}</h1>
+                <h1 className="text-white font-black text-lg tracking-tight truncate">{settings.platformName || "Ashqe"}</h1>
               )}
               <span className="hidden sm:inline text-white/30 text-xs font-semibold">/ Account</span>
             </div>
@@ -813,7 +813,7 @@ export default function UserProfilePage() {
               {activeTab === "settings" && (
                 <div className="max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <h2 className="text-xl font-black text-white mb-2">Edit Profile</h2>
-                  <p className="text-white/45 text-sm mb-6">Update how you appear across Tataiya.</p>
+                  <p className="text-white/45 text-sm mb-6">Update how you appear across Ashqe.</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-black text-white/45 uppercase tracking-wider mb-2">Display Name</label>

@@ -3566,7 +3566,7 @@ export const useGetWatchHistory = (options?: { page?: number; limit?: number }) 
 
 const OFFLINE_CACHE_NAME = 'video-offline-cache';
 const OFFLINE_META_KEY = 'offline_downloads_meta';
-const OFFLINE_OPFS_DIR = 'tataiya-offline';
+const OFFLINE_OPFS_DIR = 'ashqe-offline';
 
 const offlineFileName = (contentId: string, episodeId?: string) =>
   episodeId ? `episode-${episodeId}.mp4` : `movie-${contentId}.mp4`;
@@ -3628,7 +3628,7 @@ export const hasOfflineVideo = async (contentId: string, episodeId?: string): Pr
 
 /**
  * Download video into private browser storage (OPFS preferred).
- * Does NOT save to the system Downloads folder — only playable inside Tataiya.
+ * Does NOT save to the system Downloads folder — only playable inside Ashqe.
  * Pass trailerUrl to refuse caching the trailer by mistake.
  */
 export const cacheDownloadedVideo = async (
