@@ -1263,7 +1263,15 @@ export const updateSettingsData = async (data: Record<string, any>) => {
     method: "PUT",
     body: JSON.stringify(data),
   });
-  return response.data;
+  return response?.data ?? response;
+};
+
+export const updateSmsSettingsData = async (data: Record<string, any>) => {
+  const response = await api("/settings/sms-otp", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return response?.data ?? response;
 };
 
 export const uploadSettingsLogos = async (formData: FormData) => {

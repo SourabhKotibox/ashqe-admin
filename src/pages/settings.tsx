@@ -44,7 +44,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useDeleteAccount, useUpdateSettings, useUploadSettingsLogos, useGetEmailStatus, useTestEmail, getImageUrl } from "@/lib/api-client";
+import { useDeleteAccount, useUpdateSettings, useUploadSettingsLogos, useGetEmailStatus, useTestEmail, getImageUrl, updateSmsSettingsData } from "@/lib/api-client";
 import { useSettings, applyColorTheme, applyBodyClasses } from "@/contexts/SettingsContext";
 import { useTheme } from "next-themes";
 import MediaPicker from "@/components/MediaPicker";
@@ -542,10 +542,10 @@ export default function Settings() {
         return;
       }
 
-      const saved = await updateSettingsMutation.mutateAsync(payload);
+      const saved = await updateSmsSettingsData(payload);
       // ONLY trust the server — local paste must not fake a "saved" state
-      const tokenSet = !!saved?.mcAuthTokenSet;
-      const passwordSet = !!saved?.mcPasswordSet;
+      const tokenSet = !!(saved?.mcAuthTokenSet);
+      const passwordSet = !!(saved?.mcPasswordSet);
 
       if (tokenToSave && !tokenSet) {
         toast({
