@@ -44,7 +44,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useDeleteAccount, useUpdateSettings, useUploadSettingsLogos, useGetEmailStatus, useTestEmail, getImageUrl, updateSmsSettingsData } from "@/lib/api-client";
+import { useDeleteAccount, useUpdateSettings, useUploadSettingsLogos, useGetEmailStatus, useTestEmail, getImageUrl } from "@/lib/api-client";
 import { useSettings, applyColorTheme, applyBodyClasses } from "@/contexts/SettingsContext";
 import { useTheme } from "next-themes";
 import MediaPicker from "@/components/MediaPicker";
@@ -474,24 +474,23 @@ export default function Settings() {
     }
   };
 
-  // ── SMS / OTP (Message Central — Tataiya Message Gateway fields) ───────
+  // ── SMS / OTP (Message Central — same save path as Tataiya) ────────────
   const [sms, setSms] = useState({
     messageCentralEnabled: ctxSettings.messageCentralEnabled || ctxSettings.mcEnabled || false,
     messageCentralCustomerId: ctxSettings.messageCentralCustomerId || ctxSettings.mcCustomerId || "",
-    messageCentralAuthToken: "",
+    messageCentralAuthToken: ctxSettings.messageCentralAuthToken || ctxSettings.mcAuthToken || "",
     messageCentralBaseUrl:
       ctxSettings.messageCentralBaseUrl || ctxSettings.mcBaseUrl || "https://cpaas.messagecentral.com",
     messageCentralCountryCode: ctxSettings.messageCentralCountryCode || ctxSettings.mcCountryCode || "91",
     messageCentralOtpLength: String(ctxSettings.messageCentralOtpLength || ctxSettings.mcOtpLength || 4),
     messageCentralFlowType: ctxSettings.messageCentralFlowType || ctxSettings.mcFlowType || "SMS",
   });
-  const [replaceToken, setReplaceToken] = useState(false);
 
   useEffect(() => {
     setSms({
       messageCentralEnabled: ctxSettings.messageCentralEnabled || ctxSettings.mcEnabled || false,
       messageCentralCustomerId: ctxSettings.messageCentralCustomerId || ctxSettings.mcCustomerId || "",
-      messageCentralAuthToken: "",
+      messageCentralAuthToken: ctxSettings.messageCentralAuthToken || ctxSettings.mcAuthToken || "",
       messageCentralBaseUrl:
         ctxSettings.messageCentralBaseUrl || ctxSettings.mcBaseUrl || "https://cpaas.messagecentral.com",
       messageCentralCountryCode: ctxSettings.messageCentralCountryCode || ctxSettings.mcCountryCode || "91",
@@ -501,12 +500,14 @@ export default function Settings() {
   }, [
     ctxSettings.messageCentralEnabled,
     ctxSettings.messageCentralCustomerId,
+    ctxSettings.messageCentralAuthToken,
     ctxSettings.messageCentralBaseUrl,
     ctxSettings.messageCentralCountryCode,
     ctxSettings.messageCentralOtpLength,
     ctxSettings.messageCentralFlowType,
     ctxSettings.mcEnabled,
     ctxSettings.mcCustomerId,
+    ctxSettings.mcAuthToken,
     ctxSettings.mcBaseUrl,
     ctxSettings.mcCountryCode,
     ctxSettings.mcOtpLength,
@@ -516,113 +517,69 @@ export default function Settings() {
   const handleSaveSms = async () => {
     setSaving(true);
     try {
-      const otpLen = Math.min(8, Math.max(4, parseInt(sms.messageCentralOtpLength, 10) || 4));
-      const payload: Record<string, any> = {
-        messageCentralEnabled: !!sms.messageCentralEnabled,
-        messageCentralCustomerId: sms.messageCentralCustomerId.trim(),
-        messageCentralEmail: "",
-        messageCentralBaseUrl: sms.messageCentralBaseUrl.trim() || "https://cpaas.messagecentral.com",
-        messageCentralCountryCode: sms.messageCentralCountryCode.trim().replace(/^\+/, "") || "91",
-        messageCentralOtpLength: otpLen,
-        messageCentralFlowType: sms.messageCentralFlowType || "SMS",
-      };
-      const tokenToSave = sms.messageCentralAuthToken.replace(/\s+/g, "").trim();
-      if (tokenToSave) {
-        // Dual-write so older API builds that only read mcAuthToken still work
-        payload.messageCentralAuthToken = tokenToSave;
-        payload.mcAuthToken = tokenToSave;
-      }
+      const customerId = sms.messageCentralCustomerId.trim();
+      const authToken = sms.messageCentralAuthToken.replace(/\s+/g, "").trim();
+      const baseUrl = (sms.messageCentralBaseUrl.trim() || "https://cpaas.messagecentral.com").replace(/\/$/, "");
 
-      const tokenAlreadySet = !!(ctxSettings.messageCentralAuthTokenSet || ctxSettings.mcAuthTokenSet);
-
-      if (!payload.messageCentralCustomerId) {
+      if (!customerId) {
         toast({ title: "Customer ID is required", variant: "destructive" });
         return;
       }
-      if (!tokenToSave && !tokenAlreadySet) {
+      if (!authToken) {
         toast({
-          title: "Paste Auth Token",
-          description: "Copy the full Auth Token from Message Central console.",
+          title: "Paste Auth Token from Message Central console",
+          description: "API Credentials → Auth Token (starts with eyJ…)",
           variant: "destructive",
         });
         return;
       }
-      if (tokenToSave && tokenToSave.length < 100) {
+      if (authToken.length < 100) {
         toast({
           title: "Auth Token looks incomplete",
-          description: `Got ${tokenToSave.length} chars — paste the FULL token (usually 200–500+ chars, starts with eyJ).`,
+          description: `Got ${authToken.length} chars — paste the FULL token (usually 200–500+ chars).`,
           variant: "destructive",
         });
         return;
       }
 
-      const saved = await updateSmsSettingsData(payload);
-      const tokenSet = !!(
-        saved?.messageCentralAuthTokenSet ||
-        saved?.mcAuthTokenSet ||
-        (saved?.debug?.savedTokenLen && saved.debug.savedTokenLen > 0)
-      );
-
-      if (tokenToSave && !tokenSet) {
-        toast({
-          title: "Auth token did not save on server",
-          description: saved?.debug
-            ? `Received ${saved.debug.receivedTokenLen} chars, saved ${saved.debug.savedTokenLen}. Pull latest API + pm2 restart, or use force-mc-settings.ts on the server.`
-            : "Pull latest API, pm2 restart ashqe-api, then try again — or save via server script.",
-          variant: "destructive",
-        });
-        return;
-      }
-      const savedCustomer =
-        saved?.messageCentralCustomerId || saved?.mcCustomerId || payload.messageCentralCustomerId;
-      if (!savedCustomer && payload.messageCentralCustomerId) {
-        toast({ title: "Customer ID did not save on server", variant: "destructive" });
-        return;
-      }
-
-      const enabled = !!(saved?.messageCentralEnabled ?? saved?.mcEnabled ?? payload.messageCentralEnabled);
-      const next = {
-        messageCentralEnabled: enabled,
-        messageCentralCustomerId: savedCustomer,
-        messageCentralAuthToken: "",
-        messageCentralBaseUrl:
-          saved?.messageCentralBaseUrl || saved?.mcBaseUrl || payload.messageCentralBaseUrl,
-        messageCentralCountryCode:
-          saved?.messageCentralCountryCode || saved?.mcCountryCode || payload.messageCentralCountryCode,
-        messageCentralOtpLength: String(
-          saved?.messageCentralOtpLength || saved?.mcOtpLength || payload.messageCentralOtpLength
-        ),
-        messageCentralFlowType:
-          saved?.messageCentralFlowType || saved?.mcFlowType || payload.messageCentralFlowType,
-      };
-      setSms(next);
-      updateCtx({
-        ...next,
-        messageCentralAuthTokenSet: tokenSet,
-        messageCentralPasswordSet: false,
+      const payload: Record<string, any> = {
+        messageCentralEnabled: true,
+        messageCentralCustomerId: customerId,
+        messageCentralAuthToken: authToken,
+        messageCentralBaseUrl: baseUrl,
+        messageCentralCountryCode: sms.messageCentralCountryCode.trim().replace(/^\+/, "") || "91",
+        messageCentralOtpLength: Math.min(8, Math.max(4, parseInt(sms.messageCentralOtpLength, 10) || 4)),
+        messageCentralFlowType: sms.messageCentralFlowType || "SMS",
         messageCentralEmail: "",
-        messageCentralPassword: "",
-        mcEnabled: enabled,
-        mcCustomerId: next.messageCentralCustomerId,
-        mcBaseUrl: next.messageCentralBaseUrl,
-        mcCountryCode: next.messageCentralCountryCode,
-        mcOtpLength: Number(next.messageCentralOtpLength) || 4,
-        mcFlowType: next.messageCentralFlowType,
-        mcAuthTokenSet: tokenSet,
-        mcPasswordSet: false,
-        mcAuthToken: "",
-        mcPassword: "",
-        mcEmail: "",
-      });
-      setReplaceToken(false);
+      };
 
+      await updateSettingsMutation.mutateAsync(payload);
+      setSms((prev) => ({
+        ...prev,
+        messageCentralEnabled: true,
+        messageCentralCustomerId: customerId,
+        messageCentralAuthToken: authToken,
+        messageCentralBaseUrl: baseUrl,
+        messageCentralCountryCode: payload.messageCentralCountryCode,
+        messageCentralOtpLength: String(payload.messageCentralOtpLength),
+        messageCentralFlowType: payload.messageCentralFlowType,
+      }));
+      updateCtx({
+        ...payload,
+        messageCentralAuthTokenSet: true,
+        mcEnabled: true,
+        mcCustomerId: customerId,
+        mcAuthToken: authToken,
+        mcAuthTokenSet: true,
+        mcBaseUrl: baseUrl,
+        mcCountryCode: payload.messageCentralCountryCode,
+        mcOtpLength: payload.messageCentralOtpLength,
+        mcFlowType: payload.messageCentralFlowType,
+      });
+      await refreshSettings();
       toast({
-        title: "Message Gateway settings saved!",
-        description: [
-          enabled ? "Enabled" : "Disabled",
-          `Customer ID: ${savedCustomer}`,
-          tokenSet ? "Auth token stored in DB" : "No auth token on server",
-        ].join(" · "),
+        title: "Message Gateway saved & enabled",
+        description: "Website and app will send real SMS OTPs.",
       });
     } catch (err: any) {
       toast({ title: err?.message || "Save failed", variant: "destructive" });
@@ -1457,8 +1414,6 @@ export default function Settings() {
     </div>
   );
 
-  const tokenSaved = !!(ctxSettings.messageCentralAuthTokenSet || ctxSettings.mcAuthTokenSet);
-
   const renderSms = () => (
     <div>
       <SectionTitle icon={Smartphone} label="Message Gateway (OTP)" />
@@ -1466,25 +1421,8 @@ export default function Settings() {
       <div className="mb-6 p-4 rounded-lg border border-border bg-card space-y-2">
         <p className="text-sm font-semibold text-foreground">Message Central VerifyNow</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Stored in Settings DB (same as Tataiya). Customer ID + Auth Token only — no .env keys required.
-          Secrets are hidden on public /api/settings.
+          Same as Tataiya: paste Customer ID + full Auth Token, then Save. Stored in Settings DB.
         </p>
-        <div className="flex items-center gap-3 pt-2">
-          <div
-            className={`h-3 w-3 rounded-full ${
-              sms.messageCentralEnabled && sms.messageCentralCustomerId && (tokenSaved || sms.messageCentralAuthToken)
-                ? "bg-green-500"
-                : "bg-primary"
-            }`}
-          />
-          <span className="text-sm text-foreground">
-            {sms.messageCentralEnabled && sms.messageCentralCustomerId
-              ? tokenSaved
-                ? "OTP provider configured (Auth Token saved in DB)"
-                : "Enabled — paste Auth Token, then Save"
-              : "OTP provider disabled or incomplete"}
-          </span>
-        </div>
       </div>
 
       <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-background/50 mb-5">
@@ -1518,37 +1456,23 @@ export default function Settings() {
                   onChange={(e) => setSms({ ...sms, messageCentralCustomerId: e.target.value })}
                   placeholder="C-XXXXXXXX"
                   className={inputCls}
+                  autoComplete="off"
                 />
               </td>
             </tr>
             <tr>
               <td className="px-4 py-3 align-top">
                 <div className="font-medium text-foreground">Auth Token</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Full JWT from Message Central (200+ chars)</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Paste JWT from console (eyJ…)</div>
               </td>
               <td className="px-4 py-3">
-                {tokenSaved && !replaceToken ? (
-                  <div className="flex items-center justify-between gap-3 h-11 px-3 rounded-lg border border-green-500/40 bg-green-500/10">
-                    <span className="text-sm text-green-500 font-medium">✓ saved in DB (hidden)</span>
-                    <button
-                      type="button"
-                      className="text-xs text-muted-foreground hover:text-foreground underline"
-                      onClick={() => {
-                        setReplaceToken(true);
-                        setSms({ ...sms, messageCentralAuthToken: "" });
-                      }}
-                    >
-                      Replace
-                    </button>
-                  </div>
-                ) : (
-                  <SecretInput
-                    value={sms.messageCentralAuthToken}
-                    onChange={(e) => setSms({ ...sms, messageCentralAuthToken: e.target.value })}
-                    placeholder="Paste Auth Token from Message Central"
-                    className={inputCls}
-                  />
-                )}
+                <Textarea
+                  value={sms.messageCentralAuthToken}
+                  onChange={(e) => setSms({ ...sms, messageCentralAuthToken: e.target.value })}
+                  placeholder="eyJhbGciOiJIUzI1NiJ9..."
+                  className={`${inputCls} min-h-[88px] font-mono text-xs`}
+                  autoComplete="off"
+                />
               </td>
             </tr>
             <tr>
@@ -1561,6 +1485,7 @@ export default function Settings() {
                   onChange={(e) => setSms({ ...sms, messageCentralBaseUrl: e.target.value })}
                   placeholder="https://cpaas.messagecentral.com"
                   className={inputCls}
+                  autoComplete="off"
                 />
               </td>
             </tr>
@@ -1571,7 +1496,9 @@ export default function Settings() {
               <td className="px-4 py-3">
                 <Input
                   value={sms.messageCentralCountryCode}
-                  onChange={(e) => setSms({ ...sms, messageCentralCountryCode: e.target.value })}
+                  onChange={(e) =>
+                    setSms({ ...sms, messageCentralCountryCode: e.target.value.replace(/\D/g, "") })
+                  }
                   placeholder="91"
                   className={inputCls}
                 />
