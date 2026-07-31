@@ -133,6 +133,9 @@ export interface AppSettings {
   mcCountryCode: string;
   mcOtpLength: number;
   mcFlowType: string;
+  /** Server flags — secrets are never returned raw */
+  mcAuthTokenSet: boolean;
+  mcPasswordSet: boolean;
 }
 
 const DEFAULT: AppSettings = {
@@ -266,6 +269,8 @@ const DEFAULT: AppSettings = {
   mcCountryCode: "91",
   mcOtpLength: 4,
   mcFlowType: "SMS",
+  mcAuthTokenSet: false,
+  mcPasswordSet: false,
 };
 
 const STORAGE_KEY = "ashqeSettings";
@@ -436,6 +441,8 @@ function mapApiData(api: any): AppSettings {
     mcCountryCode: api.mcCountryCode || DEFAULT.mcCountryCode,
     mcOtpLength: api.mcOtpLength ?? DEFAULT.mcOtpLength,
     mcFlowType: api.mcFlowType || DEFAULT.mcFlowType,
+    mcAuthTokenSet: !!(api.mcAuthTokenSet || api.mcAuthToken),
+    mcPasswordSet: !!(api.mcPasswordSet || api.mcPassword),
   };
 }
 

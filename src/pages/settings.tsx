@@ -514,7 +514,7 @@ export default function Settings() {
     try {
       const otpLen = Math.min(8, Math.max(4, parseInt(sms.mcOtpLength, 10) || 4));
       const payload: Record<string, any> = {
-        mcEnabled: sms.mcEnabled,
+        mcEnabled: !!sms.mcEnabled,
         mcCustomerId: sms.mcCustomerId.trim(),
         mcEmail: sms.mcEmail.trim(),
         mcBaseUrl: sms.mcBaseUrl.trim() || "https://cpaas.messagecentral.com",
@@ -522,17 +522,45 @@ export default function Settings() {
         mcOtpLength: otpLen,
         mcFlowType: sms.mcFlowType || "SMS",
       };
-      if (sms.mcAuthToken.trim()) payload.mcAuthToken = sms.mcAuthToken.trim();
-      if (sms.mcPassword.trim()) payload.mcPassword = sms.mcPassword.trim();
+      if (sms.mcAuthToken.trim()) {
+        payload.mcAuthToken = sms.mcAuthToken.replace(/\s+/g, "").trim();
+      }
+      if (sms.mcPassword.trim()) {
+        payload.mcPassword = sms.mcPassword.trim();
+      }
 
-      await updateSettingsMutation.mutateAsync(payload);
+      const saved = await updateSettingsMutation.mutateAsync(payload);
       updateCtx({
-        ...payload,
-        ...(sms.mcAuthToken.trim() ? { mcAuthToken: sms.mcAuthToken.trim() } : {}),
-        ...(sms.mcPassword.trim() ? { mcPassword: sms.mcPassword.trim() } : {}),
+        mcEnabled: payload.mcEnabled,
+        mcCustomerId: payload.mcCustomerId,
+        mcEmail: payload.mcEmail,
+        mcBaseUrl: payload.mcBaseUrl,
+        mcCountryCode: payload.mcCountryCode,
+        mcOtpLength: payload.mcOtpLength,
+        mcFlowType: payload.mcFlowType,
+        mcAuthTokenSet: !!(saved?.mcAuthTokenSet || payload.mcAuthToken || ctxSettings.mcAuthTokenSet),
+        mcPasswordSet: !!(saved?.mcPasswordSet || payload.mcPassword || ctxSettings.mcPasswordSet),
+        mcAuthToken: "",
+        mcPassword: "",
       });
+      setSms((prev) => ({
+        ...prev,
+        mcAuthToken: "",
+        mcPassword: "",
+        mcCustomerId: payload.mcCustomerId,
+        mcEmail: payload.mcEmail,
+        mcEnabled: payload.mcEnabled,
+      }));
       await refreshSettings();
-      toast({ title: "SMS / OTP settings saved!" });
+      toast({
+        title: "SMS / OTP settings saved!",
+        description: [
+          payload.mcEnabled ? "Enabled" : "Disabled",
+          payload.mcCustomerId ? `Customer: ${payload.mcCustomerId}` : null,
+          payload.mcAuthToken || saved?.mcAuthTokenSet || ctxSettings.mcAuthTokenSet ? "Auth token stored" : "No auth token",
+          payload.mcPassword || saved?.mcPasswordSet || ctxSettings.mcPasswordSet ? "Password stored" : null,
+        ].filter(Boolean).join(" · "),
+      });
     } catch (err: any) {
       toast({ title: err?.message || "Save failed", variant: "destructive" });
     } finally {
@@ -1377,10 +1405,12 @@ export default function Settings() {
           Leave Auth Token / Password blank when saving to keep the existing secret.
         </p>
         <div className="flex items-center gap-3 pt-2">
-          <div className={`h-3 w-3 rounded-full ${sms.mcEnabled && sms.mcCustomerId ? "bg-green-500" : "bg-primary"}`} />
+          <div className={`h-3 w-3 rounded-full ${sms.mcEnabled && sms.mcCustomerId && (ctxSettings.mcAuthTokenSet || ctxSettings.mcPasswordSet || sms.mcAuthToken || sms.mcPassword) ? "bg-green-500" : "bg-primary"}`} />
           <span className="text-sm text-foreground">
             {sms.mcEnabled && sms.mcCustomerId
-              ? "OTP provider enabled"
+              ? (ctxSettings.mcAuthTokenSet || ctxSettings.mcPasswordSet
+                  ? "OTP provider configured (secrets stored on server)"
+                  : "Enabled — paste Auth Token or Email+Password, then Save")
               : "OTP provider disabled or incomplete"}
           </span>
         </div>
@@ -1409,11 +1439,16 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <Label className={labelCls}>Auth Token</Label>
+          <Label className={labelCls}>
+            Auth Token{" "}
+            {ctxSettings.mcAuthTokenSet && (
+              <span className="text-green-500 font-normal text-xs ml-1">✓ saved on server</span>
+            )}
+          </Label>
           <SecretInput
             value={sms.mcAuthToken}
             onChange={(e) => setSms({ ...sms, mcAuthToken: e.target.value })}
-            placeholder={ctxSettings.mcAuthToken ? "•••••••• (leave blank to keep)" : "Paste Auth Token"}
+            placeholder={ctxSettings.mcAuthTokenSet ? "•••••••• (leave blank to keep saved token)" : "Paste Auth Token"}
             className={inputCls}
           />
         </div>
@@ -1488,11 +1523,16 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <Label className={labelCls}>Password (token API)</Label>
+          <Label className={labelCls}>
+            Password (token API){" "}
+            {ctxSettings.mcPasswordSet && (
+              <span className="text-green-500 font-normal text-xs ml-1">✓ saved on server</span>
+            )}
+          </Label>
           <SecretInput
             value={sms.mcPassword}
             onChange={(e) => setSms({ ...sms, mcPassword: e.target.value })}
-            placeholder={ctxSettings.mcPassword ? "•••••••• (leave blank to keep)" : "Optional"}
+            placeholder={ctxSettings.mcPasswordSet ? "•••••••• (leave blank to keep)" : "Optional — recommended for auto token refresh"}
             className={inputCls}
           />
         </div>
