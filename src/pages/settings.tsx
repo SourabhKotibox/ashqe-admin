@@ -486,6 +486,8 @@ export default function Settings() {
     mcOtpLength: String(ctxSettings.mcOtpLength || 4),
     mcFlowType: ctxSettings.mcFlowType || "SMS",
   });
+  const [replaceToken, setReplaceToken] = useState(false);
+  const [replacePassword, setReplacePassword] = useState(false);
 
   useEffect(() => {
     setSms({
