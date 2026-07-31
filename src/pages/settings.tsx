@@ -518,25 +518,32 @@ export default function Settings() {
       const payload: Record<string, any> = {
         mcEnabled: !!sms.mcEnabled,
         mcCustomerId: sms.mcCustomerId.trim(),
-        mcEmail: sms.mcEmail.trim(),
+        // Auth Token path only — clear email so MC never looks it up
+        mcEmail: "",
         mcBaseUrl: sms.mcBaseUrl.trim() || "https://cpaas.messagecentral.com",
         mcCountryCode: sms.mcCountryCode.trim().replace(/^\+/, "") || "91",
         mcOtpLength: otpLen,
         mcFlowType: sms.mcFlowType || "SMS",
       };
       const tokenToSave = sms.mcAuthToken.replace(/\s+/g, "").trim();
-      const passwordToSave = sms.mcPassword.trim();
       if (tokenToSave) payload.mcAuthToken = tokenToSave;
-      if (passwordToSave) payload.mcPassword = passwordToSave;
 
       if (!payload.mcCustomerId) {
         toast({ title: "Customer ID is required", variant: "destructive" });
         return;
       }
-      if (!tokenToSave && !passwordToSave && !ctxSettings.mcAuthTokenSet && !ctxSettings.mcPasswordSet) {
+      if (!tokenToSave && !ctxSettings.mcAuthTokenSet) {
         toast({
-          title: "Paste Auth Token or Email + Password",
-          description: "Otherwise OTP cannot be sent.",
+          title: "Paste Auth Token",
+          description: "Copy the full Auth Token from Message Central console.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (tokenToSave && tokenToSave.length < 100) {
+        toast({
+          title: "Auth Token looks incomplete",
+          description: `Got ${tokenToSave.length} chars — paste the FULL token (usually 200–500+ chars, starts with eyJ).`,
           variant: "destructive",
         });
         return;
@@ -545,7 +552,6 @@ export default function Settings() {
       const saved = await updateSmsSettingsData(payload);
       // ONLY trust the server — local paste must not fake a "saved" state
       const tokenSet = !!(saved?.mcAuthTokenSet);
-      const passwordSet = !!(saved?.mcPasswordSet);
 
       if (tokenToSave && !tokenSet) {
         toast({
@@ -567,7 +573,7 @@ export default function Settings() {
         mcEnabled: !!saved?.mcEnabled || payload.mcEnabled,
         mcCustomerId: saved?.mcCustomerId || payload.mcCustomerId,
         mcAuthToken: "",
-        mcEmail: saved?.mcEmail || payload.mcEmail,
+        mcEmail: "",
         mcPassword: "",
         mcBaseUrl: saved?.mcBaseUrl || payload.mcBaseUrl,
         mcCountryCode: saved?.mcCountryCode || payload.mcCountryCode,
@@ -577,13 +583,13 @@ export default function Settings() {
       updateCtx({
         mcEnabled: !!saved?.mcEnabled || payload.mcEnabled,
         mcCustomerId: saved?.mcCustomerId || payload.mcCustomerId,
-        mcEmail: saved?.mcEmail || payload.mcEmail,
+        mcEmail: "",
         mcBaseUrl: saved?.mcBaseUrl || payload.mcBaseUrl,
         mcCountryCode: saved?.mcCountryCode || payload.mcCountryCode,
         mcOtpLength: saved?.mcOtpLength || payload.mcOtpLength,
         mcFlowType: saved?.mcFlowType || payload.mcFlowType,
         mcAuthTokenSet: tokenSet,
-        mcPasswordSet: passwordSet,
+        mcPasswordSet: false,
         mcAuthToken: "",
         mcPassword: "",
       });
@@ -1439,16 +1445,15 @@ export default function Settings() {
       <div className="mb-6 p-4 rounded-lg border border-border bg-card space-y-2">
         <p className="text-sm font-semibold text-foreground">VerifyNow — website + app login</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Enable OTP login for the website and mobile app. Paste your Message Central Customer ID and Auth Token from the console.
-          Leave Auth Token / Password blank when saving to keep the existing secret.
+          Same as Message Central: Customer ID + Auth Token. No email needed. Leave Auth Token blank when saving to keep the existing token.
         </p>
         <div className="flex items-center gap-3 pt-2">
-          <div className={`h-3 w-3 rounded-full ${sms.mcEnabled && sms.mcCustomerId && (ctxSettings.mcAuthTokenSet || ctxSettings.mcPasswordSet || sms.mcAuthToken || sms.mcPassword) ? "bg-green-500" : "bg-primary"}`} />
+          <div className={`h-3 w-3 rounded-full ${sms.mcEnabled && sms.mcCustomerId && (ctxSettings.mcAuthTokenSet || sms.mcAuthToken) ? "bg-green-500" : "bg-primary"}`} />
           <span className="text-sm text-foreground">
             {sms.mcEnabled && sms.mcCustomerId
-              ? (ctxSettings.mcAuthTokenSet || ctxSettings.mcPasswordSet
-                  ? "OTP provider configured (secrets stored on server)"
-                  : "Enabled — paste Auth Token or Email+Password, then Save")
+              ? (ctxSettings.mcAuthTokenSet
+                  ? "OTP provider configured (Auth Token saved on server)"
+                  : "Enabled — paste Auth Token, then Save")
               : "OTP provider disabled or incomplete"}
           </span>
         </div>
@@ -1540,7 +1545,7 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <Label className={labelCls}>Flow Type</Label>
+          <Label className={labelCls}>Flow</Label>
           <Select
             value={sms.mcFlowType}
             onValueChange={(v) => setSms({ ...sms, mcFlowType: v })}
@@ -1553,45 +1558,6 @@ export default function Settings() {
               <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        <div className="space-y-2 md:col-span-2 pt-2 border-t border-border">
-          <p className="text-xs text-muted-foreground">
-            Optional fallback if Auth Token is empty — Message Central token API uses Base64(password).
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label className={labelCls}>Email (token API)</Label>
-          <Input
-            value={sms.mcEmail}
-            onChange={(e) => setSms({ ...sms, mcEmail: e.target.value })}
-            placeholder="you@example.com"
-            className={inputCls}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label className={labelCls}>Password (token API)</Label>
-          {ctxSettings.mcPasswordSet && !replacePassword ? (
-            <div className="flex items-center justify-between gap-3 h-11 px-3 rounded-lg border border-green-500/40 bg-green-500/10">
-              <span className="text-sm text-green-500 font-medium">✓ Password saved on server</span>
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:text-foreground underline"
-                onClick={() => { setReplacePassword(true); setSms({ ...sms, mcPassword: "" }); }}
-              >
-                Replace
-              </button>
-            </div>
-          ) : (
-            <SecretInput
-              value={sms.mcPassword}
-              onChange={(e) => setSms({ ...sms, mcPassword: e.target.value })}
-              placeholder="Optional — recommended for auto token refresh"
-              className={inputCls}
-            />
-          )}
         </div>
       </div>
 
