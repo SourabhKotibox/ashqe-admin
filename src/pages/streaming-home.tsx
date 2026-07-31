@@ -1288,6 +1288,7 @@ function SignInModal({ onClose }: { onClose: () => void }) {
   const [verificationId, setVerificationId] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -1308,14 +1309,21 @@ function SignInModal({ onClose }: { onClose: () => void }) {
   }, []);
 
   useEffect(() => {
-    // Reset OTP state when switching tabs
     setOtp("");
     setVerificationId("");
     setOtpSent(false);
+    setResendIn(0);
     setError("");
   }, [usePhone, isLogin]);
 
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
   const persistSession = (res: any, fallbackName?: string) => {
+    if (!res?.accessToken) throw new Error(res?.message || "Login failed");
     localStorage.setItem("appAccessToken", res.accessToken);
     localStorage.setItem("accessToken", res.accessToken);
     const loggedIn = {
@@ -1334,27 +1342,58 @@ function SignInModal({ onClose }: { onClose: () => void }) {
     window.location.reload();
   };
 
+  const digitsPhone = () => phone.replace(/\D/g, "").slice(-10);
+
   const handleSendOtp = async () => {
     setError("");
-    const mobile = phone.replace(/\D/g, "").slice(-10);
+    const mobile = digitsPhone();
     if (mobile.length !== 10) {
       setError("Enter a valid 10-digit mobile number");
-      return;
+      return false;
+    }
+    if (!isLogin && usePhone && !name.trim()) {
+      setError("Enter your name");
+      return false;
     }
     setSendingOtp(true);
     try {
       const res = await sendOtpClient(mobile);
       if (!res?.success) {
         setError(res?.message || "Failed to send OTP");
-        return;
+        return false;
       }
       setVerificationId(res.verificationId || "");
       setOtpSent(true);
+      setResendIn(30);
+      setOtp("");
+      return true;
     } catch (err: any) {
       setError(err?.message || "Failed to send OTP");
+      return false;
     } finally {
       setSendingOtp(false);
     }
+  };
+
+  const handleVerifyOtp = async () => {
+    const mobile = digitsPhone();
+    if (!/^\d{4,8}$/.test(otp.trim())) {
+      setError("Enter the OTP sent to your phone");
+      return;
+    }
+    if (!verificationId) {
+      setError("Request OTP again");
+      return;
+    }
+    const res = await verifyOtpClient({
+      mobileNumber: mobile,
+      otp: otp.trim(),
+      verificationId,
+      name: name.trim() || undefined,
+      deviceId: typeof window !== "undefined" ? `web-${navigator.userAgent.slice(0, 40)}` : "web",
+      deviceName: "Website",
+    });
+    persistSession(res, name.trim() || mobile);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1362,26 +1401,13 @@ function SignInModal({ onClose }: { onClose: () => void }) {
     setError("");
     setLoading(true);
     try {
-      if (isLogin && usePhone) {
-        const mobile = phone.replace(/\D/g, "").slice(-10);
-        if (mobile.length !== 10) {
-          setError("Enter a valid 10-digit mobile number");
-          return;
-        }
+      // Phone OTP — login OR signup (same flow; verify creates account if new)
+      if (usePhone) {
         if (!otpSent) {
           await handleSendOtp();
           return;
         }
-        if (!/^\d{4,8}$/.test(otp.trim())) {
-          setError("Enter the OTP sent to your phone");
-          return;
-        }
-        const res = await verifyOtpClient({
-          mobileNumber: mobile,
-          otp: otp.trim(),
-          verificationId: verificationId || undefined,
-        });
-        persistSession(res, mobile);
+        await handleVerifyOtp();
         return;
       }
 
@@ -1408,13 +1434,13 @@ function SignInModal({ onClose }: { onClose: () => void }) {
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/30 via-black/90 to-[#030306]/95 z-0" />
           <div className="relative z-10 flex flex-col items-center justify-center h-full gap-3">
             {logoUrl ? (
-              <img src={logoUrl} alt={settings.platformName || "StreamIT"} className="h-16 w-auto object-contain drop-shadow-2xl" />
+              <img src={logoUrl} alt={settings.platformName || "Ashqe"} className="h-16 w-auto object-contain drop-shadow-2xl" />
             ) : (
               <>
                 <div className="w-12 h-12 rounded-2xl bg-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/50">
                   <Play className="w-6 h-6 text-white fill-white ml-0.5" />
                 </div>
-                <span className="text-white font-bold text-[15px] tracking-tight mt-2">{settings.platformName || "StreamIT"}</span>
+                <span className="text-white font-bold text-[15px] tracking-tight mt-2">{settings.platformName || "Ashqe"}</span>
               </>
             )}
             <p className="text-[10px] text-white/80 text-center font-medium mt-3 leading-relaxed">Your portal to premium cinematic experiences.</p>
@@ -1436,21 +1462,18 @@ function SignInModal({ onClose }: { onClose: () => void }) {
 
           {error && <div className="mb-4 p-3.5 bg-amber-400/10 border border-amber-400/20 rounded-xl text-amber-400 text-xs font-semibold leading-snug">{error}</div>}
 
-          {/* Phone / Email toggle for login */}
-          {isLogin && (
-            <div className="flex gap-1 mb-1 bg-zinc-900/60 rounded-xl p-1">
-              <button
-                type="button"
-                onClick={() => setUsePhone(false)}
-                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${!usePhone ? "bg-amber-400 text-white" : "text-white hover:text-white"}`}
-              >Email</button>
-              <button
-                type="button"
-                onClick={() => setUsePhone(true)}
-                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${usePhone ? "bg-amber-400 text-white" : "text-white hover:text-white"}`}
-              >Phone</button>
-            </div>
-          )}
+          <div className="flex gap-1 mb-3 bg-zinc-900/60 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => setUsePhone(false)}
+              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${!usePhone ? "bg-amber-400 text-black" : "text-white hover:text-white"}`}
+            >Email</button>
+            <button
+              type="button"
+              onClick={() => setUsePhone(true)}
+              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${usePhone ? "bg-amber-400 text-black" : "text-white hover:text-white"}`}
+            >Phone OTP</button>
+          </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
             {!isLogin && (
@@ -1464,11 +1487,10 @@ function SignInModal({ onClose }: { onClose: () => void }) {
               />
             )}
 
-            {/* Email field — shown in register, or in login when not using phone */}
-            {(!isLogin || !usePhone) && (
+            {!usePhone && (
               <input
                 type={isLogin ? "text" : "email"}
-                required={!usePhone}
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email Address"
@@ -1476,90 +1498,92 @@ function SignInModal({ onClose }: { onClose: () => void }) {
               />
             )}
 
-            {/* Phone field — always shown in register (optional), or in login when phone tab active */}
-            {(usePhone || !isLogin) && (
+            {usePhone && (
               <div className="flex gap-2">
-                <input
-                  type="tel"
-                  required={usePhone && isLogin}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder={isLogin ? "10-digit Phone Number" : "Phone Number (optional — links app account)"}
-                  className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all"
-                />
-                {isLogin && usePhone && (
-                  <button
-                    type="button"
-                    disabled={sendingOtp || loading}
-                    onClick={handleSendOtp}
-                    className="flex-shrink-0 px-3 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-bold whitespace-nowrap disabled:opacity-50"
-                  >
-                    {sendingOtp ? "..." : otpSent ? "Resend" : "Send OTP"}
-                  </button>
-                )}
+                <div className="flex items-center gap-0 flex-1 bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-400">
+                  <span className="pl-3 text-white/60 text-xs font-bold">+91</span>
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="10-digit mobile"
+                    className="w-full bg-transparent text-white placeholder:text-white/80 px-3 py-3 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={sendingOtp || loading || resendIn > 0}
+                  onClick={handleSendOtp}
+                  className="flex-shrink-0 px-3 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-bold whitespace-nowrap disabled:opacity-50"
+                >
+                  {sendingOtp ? "..." : otpSent ? (resendIn > 0 ? `Resend ${resendIn}s` : "Resend") : "Send OTP"}
+                </button>
               </div>
             )}
 
-            {isLogin && usePhone && otpSent && (
+            {usePhone && otpSent && (
               <input
                 type="text"
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 required
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                placeholder="Enter OTP"
-                className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all tracking-widest"
+                placeholder="Enter 4-digit OTP"
+                className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-sm font-bold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all tracking-[0.35em] text-center"
               />
             )}
 
-            {/* Password — email login / register only */}
-            {(!isLogin || !usePhone) && (
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white hover:text-white transition-colors"
-              >
-                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
-            </div>
+            {!usePhone && (
+              <>
+                {!isLogin && (
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone Number (optional — links app account)"
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all"
+                  />
+                )}
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password"
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </>
             )}
+
             <button disabled={loading || sendingOtp} type="submit" className="w-full mt-2 py-3 bg-amber-400 hover:bg-amber-500 text-black font-bold rounded-xl transition-all text-xs flex justify-center items-center h-[44px] shadow-lg shadow-amber-900/20 hover:-translate-y-0.5 active:translate-y-0">
               {loading || sendingOtp ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                isLogin
-                  ? (usePhone ? (otpSent ? "Verify OTP" : "Send OTP & Continue") : "Log In")
-                  : "Register"
+                usePhone
+                  ? (otpSent ? "Verify OTP & Continue" : "Send OTP")
+                  : (isLogin ? "Log In" : "Register")
               )}
             </button>
           </form>
 
-          <div className="mt-6 space-y-4">
-            <div className="flex items-center gap-3 text-white/80 text-[10px] font-bold uppercase tracking-widest">
-              <div className="flex-1 h-px bg-zinc-800" />
-              <span>Or connect with</span>
-              <div className="flex-1 h-px bg-zinc-800" />
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="flex-1 py-2 bg-zinc-950 border border-zinc-800 text-white/80 hover:text-white rounded-xl text-[11px] font-bold transition-all hover:bg-zinc-900 flex items-center justify-center gap-1.5">
-                Google
-              </button>
-              <button className="flex-1 py-2 bg-zinc-950 border border-zinc-800 text-white/80 hover:text-white rounded-xl text-[11px] font-bold transition-all hover:bg-zinc-900 flex items-center justify-center gap-1.5">
-                Apple
-              </button>
-            </div>
-          </div>
+          {usePhone && (
+            <p className="text-white/50 text-[10px] text-center mt-4 font-medium">
+              We’ll text a one-time code. New numbers are registered automatically.
+            </p>
+          )}
 
           <p className="text-white/80 text-[10px] text-center leading-relaxed mt-6 font-medium">
-            By continuing, you accept our <a href="#" className="text-white/80 hover:underline">Terms of Service</a> & <a href="#" className="text-white/80 hover:underline">Privacy Policy</a>.
+            By continuing, you accept our <a href="/page/terms" className="text-white/80 hover:underline">Terms of Service</a> & <a href="/page/privacy" className="text-white/80 hover:underline">Privacy Policy</a>.
           </p>
         </div>
       </div>

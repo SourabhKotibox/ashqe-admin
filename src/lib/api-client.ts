@@ -3169,6 +3169,9 @@ export const verifyOtpClient = async (opts: {
   mobileNumber: string;
   otp: string;
   verificationId?: string;
+  name?: string;
+  deviceId?: string;
+  deviceName?: string;
 }) => {
   return api('/app/auth/verify-otp', {
     method: 'POST',
@@ -3176,6 +3179,9 @@ export const verifyOtpClient = async (opts: {
       mobileNumber: String(opts.mobileNumber).replace(/\D/g, '').slice(-10),
       otp: String(opts.otp).trim(),
       verificationId: opts.verificationId,
+      ...(opts.name ? { name: opts.name } : {}),
+      ...(opts.deviceId ? { deviceId: opts.deviceId } : {}),
+      ...(opts.deviceName ? { deviceName: opts.deviceName } : {}),
     }),
   });
 };
