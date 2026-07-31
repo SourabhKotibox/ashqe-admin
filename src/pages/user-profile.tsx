@@ -376,12 +376,42 @@ export default function UserProfilePage() {
     if (!editName.trim()) return;
     setEditSaving(true);
     try {
-      await updateAppProfile({ name: editName, email: editEmail, phone: editPhone });
+      const res: any = await updateAppProfile({ name: editName, email: editEmail, phone: editPhone });
+      const payload = res?.data || res;
+      if (res?.accessToken) {
+        localStorage.setItem("appAccessToken", res.accessToken);
+        localStorage.setItem("accessToken", res.accessToken);
+      }
+      if (payload) {
+        const prev = (() => {
+          try { return JSON.parse(localStorage.getItem("appUser") || "{}"); } catch { return {}; }
+        })();
+        const next = {
+          ...prev,
+          id: payload.id || prev.id,
+          name: payload.name || editName,
+          email: payload.email || editEmail,
+          phone: payload.phone || editPhone,
+          avatar: payload.avatar ?? prev.avatar,
+          subscriptionPlan: payload.subscriptionPlan || prev.subscriptionPlan,
+          subscriptionStatus: payload.subscriptionStatus || prev.subscriptionStatus,
+          subscriptionExpiry: payload.subscriptionExpiry || prev.subscriptionExpiry,
+          subscription:
+            payload.subscriptionStatus === "active" &&
+            payload.subscriptionPlan &&
+            payload.subscriptionPlan !== "free",
+        };
+        localStorage.setItem("appUser", JSON.stringify(next));
+        localStorage.setItem("user", JSON.stringify(next));
+      }
       refetchProfile();
-      setToast("Profile updated successfully");
+      setToast(res?.merged ? "Linked to your subscribed account" : "Profile updated successfully");
       window.dispatchEvent(new Event("user-updated"));
+      if (res?.merged) {
+        setTimeout(() => window.location.reload(), 800);
+      }
     } catch (e: any) {
-      setToast("Failed to update profile");
+      setToast(e?.message || "Failed to update profile");
     } finally {
       setEditSaving(false);
     }
