@@ -3192,10 +3192,10 @@ export const sendOtpClient = async (mobileNumber: string) => {
   if (!data?.success) {
     throw new Error(data?.message || response?.message || 'Failed to send OTP');
   }
-  if (!data?.verificationId) {
+  if (!data?.verificationId || /use 1234/i.test(String(data.message || ''))) {
     throw new Error(
-      data?.message ||
-        'OTP failed — Message Gateway not live. Deploy latest API, confirm Auth Token in Admin → Message Gateway, then pm2 restart ashqe-api.'
+      'Message Gateway is not live on the API server (still returning static OTP). ' +
+        'On the server run: cd ~/ashqe-api-server && git pull && pm2 restart ashqe-api --update-env'
     );
   }
   return data;
