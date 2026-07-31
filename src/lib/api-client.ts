@@ -3501,10 +3501,14 @@ export const useGetAppProfile = () => {
 
 // Update app user profile (name / email / avatar URL / phone)
 export const updateAppProfile = async (data: { name?: string; email?: string; avatar?: string; phone?: string }) => {
-  return api('/app/profile', {
+  const res = await api('/app/profile', {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
+  if (res?.success === false) {
+    throw new Error(res?.message || res?.error || 'Failed to update profile');
+  }
+  return res;
 };
 
 // Upload avatar image file — returns { avatarUrl }

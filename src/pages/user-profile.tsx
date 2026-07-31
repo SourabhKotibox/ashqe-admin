@@ -376,39 +376,44 @@ export default function UserProfilePage() {
     if (!editName.trim()) return;
     setEditSaving(true);
     try {
-      const res: any = await updateAppProfile({ name: editName, email: editEmail, phone: editPhone });
+      const res: any = await updateAppProfile({
+        name: editName.trim(),
+        email: editEmail.trim(),
+        phone: editPhone.trim(),
+      });
       const payload = res?.data || res;
+
+      // Switch to merged account token BEFORE refetching profile
       if (res?.accessToken) {
         localStorage.setItem("appAccessToken", res.accessToken);
         localStorage.setItem("accessToken", res.accessToken);
       }
+
       if (payload) {
-        const prev = (() => {
-          try { return JSON.parse(localStorage.getItem("appUser") || "{}"); } catch { return {}; }
-        })();
         const next = {
-          ...prev,
-          id: payload.id || prev.id,
+          id: payload.id,
           name: payload.name || editName,
           email: payload.email || editEmail,
           phone: payload.phone || editPhone,
-          avatar: payload.avatar ?? prev.avatar,
-          subscriptionPlan: payload.subscriptionPlan || prev.subscriptionPlan,
-          subscriptionStatus: payload.subscriptionStatus || prev.subscriptionStatus,
-          subscriptionExpiry: payload.subscriptionExpiry || prev.subscriptionExpiry,
-          subscription:
-            payload.subscriptionStatus === "active" &&
-            payload.subscriptionPlan &&
-            payload.subscriptionPlan !== "free",
+          avatar: payload.avatar || null,
+          subscriptionPlan: payload.subscriptionPlan || "free",
+          subscriptionStatus: payload.subscriptionStatus || "inactive",
+          subscriptionExpiry: payload.subscriptionExpiry || null,
+          subscription: !!payload.subscription,
         };
         localStorage.setItem("appUser", JSON.stringify(next));
         localStorage.setItem("user", JSON.stringify(next));
+        setUser(next);
+        setEditName(next.name || "");
+        setEditEmail(next.email || "");
+        setEditPhone(next.phone || "");
       }
-      refetchProfile();
-      setToast(res?.merged ? "Linked to your subscribed account" : "Profile updated successfully");
+
+      await refetchProfile();
+      setToast(res?.message || (res?.merged ? "Linked to your subscribed account" : "Profile updated successfully"));
       window.dispatchEvent(new Event("user-updated"));
       if (res?.merged) {
-        setTimeout(() => window.location.reload(), 800);
+        setTimeout(() => window.location.reload(), 600);
       }
     } catch (e: any) {
       setToast(e?.message || "Failed to update profile");
