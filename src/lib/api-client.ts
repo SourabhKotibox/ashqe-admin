@@ -1266,12 +1266,26 @@ export const updateSettingsData = async (data: Record<string, any>) => {
   return response?.data ?? response;
 };
 
+/** SMS/OTP save — tries dedicated route, falls back to PUT /settings */
 export const updateSmsSettingsData = async (data: Record<string, any>) => {
-  const response = await api("/settings/sms-otp", {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-  return response?.data ?? response;
+  try {
+    const response = await api("/settings/sms-otp", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    return response?.data ?? response;
+  } catch (err: any) {
+    const msg = String(err?.message || "");
+    // Older API builds don't have /settings/sms-otp yet
+    if (/not found|404/i.test(msg)) {
+      const response = await api("/settings", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+      return response?.data ?? response;
+    }
+    throw err;
+  }
 };
 
 export const uploadSettingsLogos = async (formData: FormData) => {
