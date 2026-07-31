@@ -63,17 +63,39 @@ function AvatarCircle({ name, avatarUrl, size = "lg" }: { name?: string; avatarU
 }
 
 function ToastAlert({ msg, onClose }: { msg: string; onClose: () => void }) {
+  const isError = /fail|error|already|unauthorized|invalid|required|enter /i.test(msg);
   useEffect(() => {
-    const t = setTimeout(onClose, 3500);
+    const t = setTimeout(onClose, isError ? 8000 : 4000);
     return () => clearTimeout(t);
-  }, []);
+  }, [isError, onClose]);
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] bg-emerald-950/95 backdrop-blur-xl border border-emerald-500/30 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-        <Check className="w-3.5 h-3.5 text-emerald-400" />
+    <div
+      className={`fixed top-6 left-1/2 -translate-x-1/2 z-[400] max-w-md w-[calc(100%-2rem)] backdrop-blur-xl border px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 ${
+        isError
+          ? "bg-red-950/95 border-red-500/40"
+          : "bg-emerald-950/95 border-emerald-500/30"
+      }`}
+    >
+      <div
+        className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+          isError ? "bg-red-500/20" : "bg-emerald-500/20"
+        }`}
+      >
+        {isError ? (
+          <X className="w-3.5 h-3.5 text-red-400" />
+        ) : (
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+        )}
       </div>
-      <span className="text-emerald-200 text-sm font-semibold">{msg}</span>
-      <button onClick={onClose} className="text-emerald-200/50 hover:text-emerald-200 transition-colors ml-1">
+      <span className={`text-sm font-semibold ${isError ? "text-red-200" : "text-emerald-200"}`}>
+        {msg}
+      </span>
+      <button
+        onClick={onClose}
+        className={`ml-1 transition-colors ${
+          isError ? "text-red-200/50 hover:text-red-200" : "text-emerald-200/50 hover:text-emerald-200"
+        }`}
+      >
         <X className="w-3.5 h-3.5" />
       </button>
     </div>
@@ -373,21 +395,23 @@ export default function UserProfilePage() {
   };
 
   const handleSaveProfile = async () => {
-    if (!editName.trim()) return;
+    if (!editName.trim()) {
+      setToast("Enter a display name");
+      return;
+    }
+    if (!editEmail.trim() || !editEmail.includes("@")) {
+      setToast("Enter a valid email address");
+      return;
+    }
     setEditSaving(true);
+    setToast("");
     try {
       const res: any = await updateAppProfile({
         name: editName.trim(),
-        email: editEmail.trim(),
+        email: editEmail.trim().toLowerCase(),
         phone: editPhone.trim(),
       });
       const payload = res?.data || res;
-
-      // Switch to merged account token BEFORE refetching profile
-      if (res?.accessToken) {
-        localStorage.setItem("appAccessToken", res.accessToken);
-        localStorage.setItem("accessToken", res.accessToken);
-      }
 
       if (payload) {
         const next = {
@@ -401,21 +425,22 @@ export default function UserProfilePage() {
           subscriptionExpiry: payload.subscriptionExpiry || null,
           subscription: !!payload.subscription,
         };
-        localStorage.setItem("appUser", JSON.stringify(next));
-        localStorage.setItem("user", JSON.stringify(next));
         setUser(next);
         setEditName(next.name || "");
-        setEditEmail(next.email || "");
+        setEditEmail(next.email && !String(next.email).endsWith("@temp.local") ? next.email : editEmail);
         setEditPhone(next.phone || "");
       }
 
       await refetchProfile();
-      setToast(res?.message || (res?.merged ? "Linked to your subscribed account" : "Profile updated successfully"));
+      const okMsg = res?.merged
+        ? "Linked to your subscribed account — reloading…"
+        : "Profile saved";
+      setToast(res?.message || okMsg);
       window.dispatchEvent(new Event("user-updated"));
-      if (res?.merged) {
-        setTimeout(() => window.location.reload(), 600);
-      }
+      // Always reload after save so sidebar subscription/email refresh from server
+      setTimeout(() => window.location.reload(), res?.merged ? 500 : 900);
     } catch (e: any) {
+      console.error("Profile save failed:", e);
       setToast(e?.message || "Failed to update profile");
     } finally {
       setEditSaving(false);

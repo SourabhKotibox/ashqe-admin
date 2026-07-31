@@ -3486,27 +3486,58 @@ export const getAppProfile = async () => {
 };
 
 export const useGetAppProfile = () => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('appAccessToken') : null;
   return useQuery({
-    queryKey: ['app-profile', token],
+    queryKey: ['app-profile'],
     queryFn: async () => {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('appAccessToken') || localStorage.getItem('accessToken')
+          : null;
       if (!token) return null;
       const res = await getAppProfile();
-      return res.data;
+      // Support { data: { user } } and { user }
+      return res?.data ?? res;
     },
     retry: false,
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 };
 
 // Update app user profile (name / email / avatar URL / phone)
-export const updateAppProfile = async (data: { name?: string; email?: string; avatar?: string; phone?: string }) => {
+export const updateAppProfile = async (data: {
+  name?: string;
+  email?: string;
+  avatar?: string;
+  phone?: string;
+}) => {
   const res = await api('/app/profile', {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
-  if (res?.success === false) {
+  if (!res || res.success === false) {
     throw new Error(res?.message || res?.error || 'Failed to update profile');
+  }
+  // Persist merged session immediately so the next profile GET uses the right user
+  if (res.accessToken) {
+    localStorage.setItem('appAccessToken', res.accessToken);
+    localStorage.setItem('accessToken', res.accessToken);
+  }
+  if (res.data) {
+    const u = res.data;
+    const next = {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      avatar: u.avatar || null,
+      subscriptionPlan: u.subscriptionPlan || 'free',
+      subscriptionStatus: u.subscriptionStatus || 'inactive',
+      subscriptionExpiry: u.subscriptionExpiry || null,
+      subscription: !!u.subscription,
+    };
+    localStorage.setItem('appUser', JSON.stringify(next));
+    localStorage.setItem('user', JSON.stringify(next));
   }
   return res;
 };
