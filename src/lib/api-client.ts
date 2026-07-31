@@ -3184,7 +3184,6 @@ export const sendOtpClient = async (mobileNumber: string) => {
     method: 'POST',
     body: JSON.stringify({ mobileNumber: String(mobileNumber).replace(/\D/g, '').slice(-10) }),
   });
-  // Support flat `{ success, verificationId }` and nested `{ data: {...} }`
   const data =
     response?.data && typeof response.data === 'object' && ('verificationId' in response.data || 'success' in response.data)
       ? response.data
@@ -3195,15 +3194,8 @@ export const sendOtpClient = async (mobileNumber: string) => {
   }
   if (!data?.verificationId) {
     throw new Error(
-      data?.message?.includes('1234')
-        ? 'Server is in static-OTP mode (no SMS). On the server: unset ALLOW_STATIC_OTP, confirm Message Gateway Auth Token, then pm2 restart ashqe-api.'
-        : 'OTP API returned success without verificationId — API deploy is outdated or misconfigured.'
-    );
-  }
-  // Reject static/dev fake OTP on the public website
-  if (data.verificationId === 'static-otp-verification' || /use 1234/i.test(String(data.message || ''))) {
-    throw new Error(
-      'SMS gateway is not live on this server (got static 1234). Enable Message Gateway + restart ashqe-api.'
+      data?.message ||
+        'OTP failed — Message Gateway not live. Deploy latest API, confirm Auth Token in Admin → Message Gateway, then pm2 restart ashqe-api.'
     );
   }
   return data;
