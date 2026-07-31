@@ -543,30 +543,45 @@ export default function Settings() {
       }
 
       const saved = await updateSettingsMutation.mutateAsync(payload);
-      const tokenSet = !!(saved?.mcAuthTokenSet || tokenToSave || ctxSettings.mcAuthTokenSet);
-      const passwordSet = !!(saved?.mcPasswordSet || passwordToSave || ctxSettings.mcPasswordSet);
+      // ONLY trust the server — local paste must not fake a "saved" state
+      const tokenSet = !!saved?.mcAuthTokenSet;
+      const passwordSet = !!saved?.mcPasswordSet;
 
-      // Update local form + context from save response — do NOT refresh
-      // (a public/stale GET was wiping SMS fields after a successful save)
+      if (tokenToSave && !tokenSet) {
+        toast({
+          title: "Auth token did not save on server",
+          description: "Check API logs / MongoDB. Try the force-mc-settings script on the server.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!saved?.mcCustomerId && payload.mcCustomerId) {
+        toast({
+          title: "Customer ID did not save on server",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setSms({
-        mcEnabled: payload.mcEnabled,
-        mcCustomerId: payload.mcCustomerId,
+        mcEnabled: !!saved?.mcEnabled || payload.mcEnabled,
+        mcCustomerId: saved?.mcCustomerId || payload.mcCustomerId,
         mcAuthToken: "",
-        mcEmail: payload.mcEmail,
+        mcEmail: saved?.mcEmail || payload.mcEmail,
         mcPassword: "",
-        mcBaseUrl: payload.mcBaseUrl,
-        mcCountryCode: payload.mcCountryCode,
-        mcOtpLength: String(payload.mcOtpLength),
-        mcFlowType: payload.mcFlowType,
+        mcBaseUrl: saved?.mcBaseUrl || payload.mcBaseUrl,
+        mcCountryCode: saved?.mcCountryCode || payload.mcCountryCode,
+        mcOtpLength: String(saved?.mcOtpLength || payload.mcOtpLength),
+        mcFlowType: saved?.mcFlowType || payload.mcFlowType,
       });
       updateCtx({
-        mcEnabled: payload.mcEnabled,
-        mcCustomerId: payload.mcCustomerId,
-        mcEmail: payload.mcEmail,
-        mcBaseUrl: payload.mcBaseUrl,
-        mcCountryCode: payload.mcCountryCode,
-        mcOtpLength: payload.mcOtpLength,
-        mcFlowType: payload.mcFlowType,
+        mcEnabled: !!saved?.mcEnabled || payload.mcEnabled,
+        mcCustomerId: saved?.mcCustomerId || payload.mcCustomerId,
+        mcEmail: saved?.mcEmail || payload.mcEmail,
+        mcBaseUrl: saved?.mcBaseUrl || payload.mcBaseUrl,
+        mcCountryCode: saved?.mcCountryCode || payload.mcCountryCode,
+        mcOtpLength: saved?.mcOtpLength || payload.mcOtpLength,
+        mcFlowType: saved?.mcFlowType || payload.mcFlowType,
         mcAuthTokenSet: tokenSet,
         mcPasswordSet: passwordSet,
         mcAuthToken: "",
@@ -576,12 +591,12 @@ export default function Settings() {
       setReplacePassword(false);
 
       toast({
-        title: "SMS / OTP settings saved!",
+        title: "SMS / OTP settings saved on server!",
         description: [
-          payload.mcEnabled ? "Enabled" : "Disabled",
-          `Customer ID: ${payload.mcCustomerId}`,
-          tokenSet ? "Auth token stored on server" : null,
-          passwordSet ? "Password stored on server" : null,
+          (saved?.mcEnabled || payload.mcEnabled) ? "Enabled" : "Disabled",
+          `Customer ID: ${saved?.mcCustomerId || payload.mcCustomerId}`,
+          tokenSet ? "Auth token stored" : "No auth token on server",
+          passwordSet ? "Password stored" : null,
         ].filter(Boolean).join(" · "),
       });
     } catch (err: any) {
