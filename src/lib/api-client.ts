@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-// Production: site origin only. API paths already start with /api/...
+// Production: same-origin `/api/...` (avoids wrong VITE_API_URL / double host).
 // Local: set VITE_API_URL=http://localhost:3000 in .env.local
-let baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://ashqe.app" : "http://localhost:3000");
+let baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "" : "http://localhost:3000");
 let getAuthToken = () => localStorage.getItem("appAccessToken");
 
 export const getActiveProfileId = (): string | null => {
@@ -3180,10 +3180,33 @@ export const loginClient = async (data: { email: string; password: string }) => 
 export const registerClient = async (data: { email: string; password: string; name: string; phone?: string }) => { return api('/app/auth/register', { method: 'POST', body: JSON.stringify(data) }); };
 
 export const sendOtpClient = async (mobileNumber: string) => {
-  return api('/app/auth/send-otp', {
+  const response = await api('/app/auth/send-otp', {
     method: 'POST',
     body: JSON.stringify({ mobileNumber: String(mobileNumber).replace(/\D/g, '').slice(-10) }),
   });
+  // Support flat `{ success, verificationId }` and nested `{ data: {...} }`
+  const data =
+    response?.data && typeof response.data === 'object' && ('verificationId' in response.data || 'success' in response.data)
+      ? response.data
+      : response;
+
+  if (!data?.success) {
+    throw new Error(data?.message || response?.message || 'Failed to send OTP');
+  }
+  if (!data?.verificationId) {
+    throw new Error(
+      data?.message?.includes('1234')
+        ? 'Server is in static-OTP mode (no SMS). On the server: unset ALLOW_STATIC_OTP, confirm Message Gateway Auth Token, then pm2 restart ashqe-api.'
+        : 'OTP API returned success without verificationId — API deploy is outdated or misconfigured.'
+    );
+  }
+  // Reject static/dev fake OTP on the public website
+  if (data.verificationId === 'static-otp-verification' || /use 1234/i.test(String(data.message || ''))) {
+    throw new Error(
+      'SMS gateway is not live on this server (got static 1234). Enable Message Gateway + restart ashqe-api.'
+    );
+  }
+  return data;
 };
 
 export const verifyOtpClient = async (opts: {
