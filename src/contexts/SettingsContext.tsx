@@ -123,7 +123,20 @@ export interface AppSettings {
   razorpayEnabled: boolean;
   razorpayKeyId: string;
   razorpayKeySecret: string;
-  // Message Central SMS / OTP
+  // Message Central SMS / OTP (Tataiya field names)
+  messageCentralEnabled: boolean;
+  messageCentralCustomerId: string;
+  messageCentralAuthToken: string;
+  messageCentralEmail: string;
+  messageCentralPassword: string;
+  messageCentralBaseUrl: string;
+  messageCentralCountryCode: string;
+  messageCentralOtpLength: number;
+  messageCentralFlowType: string;
+  /** Server flags — secrets are never returned raw */
+  messageCentralAuthTokenSet: boolean;
+  messageCentralPasswordSet: boolean;
+  /** @deprecated legacy aliases */
   mcEnabled: boolean;
   mcCustomerId: string;
   mcAuthToken: string;
@@ -133,7 +146,6 @@ export interface AppSettings {
   mcCountryCode: string;
   mcOtpLength: number;
   mcFlowType: string;
-  /** Server flags — secrets are never returned raw */
   mcAuthTokenSet: boolean;
   mcPasswordSet: boolean;
 }
@@ -260,6 +272,17 @@ const DEFAULT: AppSettings = {
   razorpayKeyId: "",
   razorpayKeySecret: "",
   // Message Central SMS / OTP
+  messageCentralEnabled: false,
+  messageCentralCustomerId: "",
+  messageCentralAuthToken: "",
+  messageCentralEmail: "",
+  messageCentralPassword: "",
+  messageCentralBaseUrl: "https://cpaas.messagecentral.com",
+  messageCentralCountryCode: "91",
+  messageCentralOtpLength: 4,
+  messageCentralFlowType: "SMS",
+  messageCentralAuthTokenSet: false,
+  messageCentralPasswordSet: false,
   mcEnabled: false,
   mcCustomerId: "",
   mcAuthToken: "",
@@ -431,18 +454,29 @@ function mapApiData(api: any): AppSettings {
     razorpayEnabled: api.razorpayEnabled ?? DEFAULT.razorpayEnabled,
     razorpayKeyId: api.razorpayKeyId || "",
     razorpayKeySecret: api.razorpayKeySecret || "",
-    // Message Central SMS / OTP
-    mcEnabled: api.mcEnabled ?? DEFAULT.mcEnabled,
-    mcCustomerId: api.mcCustomerId || "",
-    mcAuthToken: api.mcAuthToken || "",
-    mcEmail: api.mcEmail || "",
-    mcPassword: api.mcPassword || "",
-    mcBaseUrl: api.mcBaseUrl || DEFAULT.mcBaseUrl,
-    mcCountryCode: api.mcCountryCode || DEFAULT.mcCountryCode,
-    mcOtpLength: api.mcOtpLength ?? DEFAULT.mcOtpLength,
-    mcFlowType: api.mcFlowType || DEFAULT.mcFlowType,
-    mcAuthTokenSet: !!(api.mcAuthTokenSet || api.mcAuthToken),
-    mcPasswordSet: !!(api.mcPasswordSet || api.mcPassword),
+    // Message Central SMS / OTP (Tataiya names + legacy mc* fallback)
+    messageCentralEnabled: !!(api.messageCentralEnabled ?? api.mcEnabled ?? DEFAULT.messageCentralEnabled),
+    messageCentralCustomerId: api.messageCentralCustomerId || api.mcCustomerId || "",
+    messageCentralAuthToken: api.messageCentralAuthToken || api.mcAuthToken || "",
+    messageCentralEmail: api.messageCentralEmail || api.mcEmail || "",
+    messageCentralPassword: api.messageCentralPassword || api.mcPassword || "",
+    messageCentralBaseUrl: api.messageCentralBaseUrl || api.mcBaseUrl || DEFAULT.messageCentralBaseUrl,
+    messageCentralCountryCode: api.messageCentralCountryCode || api.mcCountryCode || DEFAULT.messageCentralCountryCode,
+    messageCentralOtpLength: api.messageCentralOtpLength ?? api.mcOtpLength ?? DEFAULT.messageCentralOtpLength,
+    messageCentralFlowType: api.messageCentralFlowType || api.mcFlowType || DEFAULT.messageCentralFlowType,
+    messageCentralAuthTokenSet: !!(api.messageCentralAuthTokenSet || api.mcAuthTokenSet || api.messageCentralAuthToken || api.mcAuthToken),
+    messageCentralPasswordSet: !!(api.messageCentralPasswordSet || api.mcPasswordSet || api.messageCentralPassword || api.mcPassword),
+    mcEnabled: !!(api.messageCentralEnabled ?? api.mcEnabled ?? DEFAULT.mcEnabled),
+    mcCustomerId: api.messageCentralCustomerId || api.mcCustomerId || "",
+    mcAuthToken: api.messageCentralAuthToken || api.mcAuthToken || "",
+    mcEmail: api.messageCentralEmail || api.mcEmail || "",
+    mcPassword: api.messageCentralPassword || api.mcPassword || "",
+    mcBaseUrl: api.messageCentralBaseUrl || api.mcBaseUrl || DEFAULT.mcBaseUrl,
+    mcCountryCode: api.messageCentralCountryCode || api.mcCountryCode || DEFAULT.mcCountryCode,
+    mcOtpLength: api.messageCentralOtpLength ?? api.mcOtpLength ?? DEFAULT.mcOtpLength,
+    mcFlowType: api.messageCentralFlowType || api.mcFlowType || DEFAULT.mcFlowType,
+    mcAuthTokenSet: !!(api.messageCentralAuthTokenSet || api.mcAuthTokenSet || api.messageCentralAuthToken || api.mcAuthToken),
+    mcPasswordSet: !!(api.messageCentralPasswordSet || api.mcPasswordSet || api.messageCentralPassword || api.mcPassword),
   };
 }
 
