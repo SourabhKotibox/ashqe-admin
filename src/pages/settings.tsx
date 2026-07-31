@@ -527,7 +527,11 @@ export default function Settings() {
         messageCentralFlowType: sms.messageCentralFlowType || "SMS",
       };
       const tokenToSave = sms.messageCentralAuthToken.replace(/\s+/g, "").trim();
-      if (tokenToSave) payload.messageCentralAuthToken = tokenToSave;
+      if (tokenToSave) {
+        // Dual-write so older API builds that only read mcAuthToken still work
+        payload.messageCentralAuthToken = tokenToSave;
+        payload.mcAuthToken = tokenToSave;
+      }
 
       const tokenAlreadySet = !!(ctxSettings.messageCentralAuthTokenSet || ctxSettings.mcAuthTokenSet);
 
@@ -553,12 +557,18 @@ export default function Settings() {
       }
 
       const saved = await updateSmsSettingsData(payload);
-      const tokenSet = !!(saved?.messageCentralAuthTokenSet || saved?.mcAuthTokenSet);
+      const tokenSet = !!(
+        saved?.messageCentralAuthTokenSet ||
+        saved?.mcAuthTokenSet ||
+        (saved?.debug?.savedTokenLen && saved.debug.savedTokenLen > 0)
+      );
 
       if (tokenToSave && !tokenSet) {
         toast({
           title: "Auth token did not save on server",
-          description: "Check API logs / MongoDB.",
+          description: saved?.debug
+            ? `Received ${saved.debug.receivedTokenLen} chars, saved ${saved.debug.savedTokenLen}. Pull latest API + pm2 restart, or use force-mc-settings.ts on the server.`
+            : "Pull latest API, pm2 restart ashqe-api, then try again — or save via server script.",
           variant: "destructive",
         });
         return;

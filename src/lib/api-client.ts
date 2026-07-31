@@ -1273,6 +1273,10 @@ export const updateSmsSettingsData = async (data: Record<string, any>) => {
       method: "PUT",
       body: JSON.stringify(data),
     });
+    // api() returns { success, data } — unwrap data, keep debug
+    if (response?.data && typeof response.data === "object") {
+      return { ...response.data, success: response.success !== false };
+    }
     return response?.data ?? response;
   } catch (err: any) {
     const msg = String(err?.message || "");
@@ -1282,6 +1286,9 @@ export const updateSmsSettingsData = async (data: Record<string, any>) => {
         method: "PUT",
         body: JSON.stringify(data),
       });
+      if (response?.data && typeof response.data === "object") {
+        return { ...response.data, success: response.success !== false };
+      }
       return response?.data ?? response;
     }
     throw err;
