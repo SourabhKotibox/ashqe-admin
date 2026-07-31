@@ -123,6 +123,16 @@ export interface AppSettings {
   razorpayEnabled: boolean;
   razorpayKeyId: string;
   razorpayKeySecret: string;
+  // Message Central SMS / OTP
+  mcEnabled: boolean;
+  mcCustomerId: string;
+  mcAuthToken: string;
+  mcEmail: string;
+  mcPassword: string;
+  mcBaseUrl: string;
+  mcCountryCode: string;
+  mcOtpLength: number;
+  mcFlowType: string;
 }
 
 const DEFAULT: AppSettings = {
@@ -246,6 +256,16 @@ const DEFAULT: AppSettings = {
   razorpayEnabled: false,
   razorpayKeyId: "",
   razorpayKeySecret: "",
+  // Message Central SMS / OTP
+  mcEnabled: false,
+  mcCustomerId: "",
+  mcAuthToken: "",
+  mcEmail: "",
+  mcPassword: "",
+  mcBaseUrl: "https://cpaas.messagecentral.com",
+  mcCountryCode: "91",
+  mcOtpLength: 4,
+  mcFlowType: "SMS",
 };
 
 const STORAGE_KEY = "ashqeSettings";
@@ -406,6 +426,16 @@ function mapApiData(api: any): AppSettings {
     razorpayEnabled: api.razorpayEnabled ?? DEFAULT.razorpayEnabled,
     razorpayKeyId: api.razorpayKeyId || "",
     razorpayKeySecret: api.razorpayKeySecret || "",
+    // Message Central SMS / OTP
+    mcEnabled: api.mcEnabled ?? DEFAULT.mcEnabled,
+    mcCustomerId: api.mcCustomerId || "",
+    mcAuthToken: api.mcAuthToken || "",
+    mcEmail: api.mcEmail || "",
+    mcPassword: api.mcPassword || "",
+    mcBaseUrl: api.mcBaseUrl || DEFAULT.mcBaseUrl,
+    mcCountryCode: api.mcCountryCode || DEFAULT.mcCountryCode,
+    mcOtpLength: api.mcOtpLength ?? DEFAULT.mcOtpLength,
+    mcFlowType: api.mcFlowType || DEFAULT.mcFlowType,
   };
 }
 

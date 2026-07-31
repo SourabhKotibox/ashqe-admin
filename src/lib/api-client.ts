@@ -3150,6 +3150,28 @@ export const useGetTransactions = () => {
 export const loginClient = async (data: { email: string; password: string }) => { return api('/app/auth/login', { method: 'POST', body: JSON.stringify(data) }); };
 export const registerClient = async (data: { email: string; password: string; name: string; phone?: string }) => { return api('/app/auth/register', { method: 'POST', body: JSON.stringify(data) }); };
 
+export const sendOtpClient = async (mobileNumber: string) => {
+  return api('/app/auth/send-otp', {
+    method: 'POST',
+    body: JSON.stringify({ mobileNumber: String(mobileNumber).replace(/\D/g, '').slice(-10) }),
+  });
+};
+
+export const verifyOtpClient = async (opts: {
+  mobileNumber: string;
+  otp: string;
+  verificationId?: string;
+}) => {
+  return api('/app/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify({
+      mobileNumber: String(opts.mobileNumber).replace(/\D/g, '').slice(-10),
+      otp: String(opts.otp).trim(),
+      verificationId: opts.verificationId,
+    }),
+  });
+};
+
 // Countries API
 export const getCountries = async (options?: { page?: number; limit?: number; admin?: boolean }) => {
   const params = new URLSearchParams();

@@ -12,7 +12,7 @@ import {
   Volume2, VolumeX, ExternalLink, SkipForward,
 } from "lucide-react";
 import {
-  useGetWebHome, useGetWebBrowse, loginClient, registerClient, useGetPages,
+  useGetWebHome, useGetWebBrowse, loginClient, registerClient, sendOtpClient, verifyOtpClient, useGetPages,
   useGetGenres, useGetWebSubscriptionPlans,
   useGetWatchHistory, useGetSections, useGetWebAllContent, getAppProfile,
   useGetWishlist, useToggleWishlist,
@@ -1284,6 +1284,10 @@ function SignInModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [usePhone, setUsePhone] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [verificationId, setVerificationId] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -1303,46 +1307,90 @@ function SignInModal({ onClose }: { onClose: () => void }) {
     return () => { document.body.style.overflow = ""; };
   }, []);
 
+  useEffect(() => {
+    // Reset OTP state when switching tabs
+    setOtp("");
+    setVerificationId("");
+    setOtpSent(false);
+    setError("");
+  }, [usePhone, isLogin]);
+
+  const persistSession = (res: any, fallbackName?: string) => {
+    localStorage.setItem("appAccessToken", res.accessToken);
+    localStorage.setItem("accessToken", res.accessToken);
+    const loggedIn = {
+      id: res.userId,
+      name: res.name || fallbackName || "User",
+      avatar: res.avatar || null,
+      email: res.email || null,
+      phone: res.phone || null,
+      subscriptionPlan: res.subscriptionPlan || "free",
+      subscriptionStatus: res.subscriptionStatus || "inactive",
+      subscriptionExpiry: res.subscriptionExpiry || null,
+      subscription: !!res.subscription || (res.subscriptionStatus === "active" && res.subscriptionPlan && res.subscriptionPlan !== "free"),
+    };
+    localStorage.setItem("appUser", JSON.stringify(loggedIn));
+    localStorage.setItem("user", JSON.stringify(loggedIn));
+    window.location.reload();
+  };
+
+  const handleSendOtp = async () => {
+    setError("");
+    const mobile = phone.replace(/\D/g, "").slice(-10);
+    if (mobile.length !== 10) {
+      setError("Enter a valid 10-digit mobile number");
+      return;
+    }
+    setSendingOtp(true);
+    try {
+      const res = await sendOtpClient(mobile);
+      if (!res?.success) {
+        setError(res?.message || "Failed to send OTP");
+        return;
+      }
+      setVerificationId(res.verificationId || "");
+      setOtpSent(true);
+    } catch (err: any) {
+      setError(err?.message || "Failed to send OTP");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
+      if (isLogin && usePhone) {
+        const mobile = phone.replace(/\D/g, "").slice(-10);
+        if (mobile.length !== 10) {
+          setError("Enter a valid 10-digit mobile number");
+          return;
+        }
+        if (!otpSent) {
+          await handleSendOtp();
+          return;
+        }
+        if (!/^\d{4,8}$/.test(otp.trim())) {
+          setError("Enter the OTP sent to your phone");
+          return;
+        }
+        const res = await verifyOtpClient({
+          mobileNumber: mobile,
+          otp: otp.trim(),
+          verificationId: verificationId || undefined,
+        });
+        persistSession(res, mobile);
+        return;
+      }
+
       if (isLogin) {
-        // Phone login: pass phone number as the email field — server handles phone vs email
-        const loginIdentifier = usePhone ? phone : email;
-        const res = await loginClient({ email: loginIdentifier, password });
-        localStorage.setItem("appAccessToken", res.accessToken);
-        localStorage.setItem("accessToken", res.accessToken); // legacy compat
-        const loggedIn = {
-          id: res.userId,
-          name: res.name || email.split("@")[0],
-          avatar: res.avatar || null,
-          email: res.email || null,
-          subscriptionPlan: res.subscriptionPlan || "free",
-          subscriptionStatus: res.subscriptionStatus || "inactive",
-          subscriptionExpiry: res.subscriptionExpiry || null,
-          subscription: !!res.subscription || (res.subscriptionStatus === "active" && res.subscriptionPlan && res.subscriptionPlan !== "free"),
-        };
-        localStorage.setItem("appUser", JSON.stringify(loggedIn));
-        localStorage.setItem("user", JSON.stringify(loggedIn));
-        window.location.reload();
+        const res = await loginClient({ email, password });
+        persistSession(res, email.split("@")[0]);
       } else {
         const res = await registerClient({ email, password, name, phone: phone || undefined });
-        localStorage.setItem("appAccessToken", res.accessToken);
-        localStorage.setItem("accessToken", res.accessToken); // legacy compat
-        const registered = {
-          id: res.userId,
-          name,
-          avatar: res.avatar || null,
-          subscriptionPlan: res.subscriptionPlan || "free",
-          subscriptionStatus: res.subscriptionStatus || "inactive",
-          subscriptionExpiry: res.subscriptionExpiry || null,
-          subscription: false,
-        };
-        localStorage.setItem("appUser", JSON.stringify(registered));
-        localStorage.setItem("user", JSON.stringify(registered));
-        window.location.reload();
+        persistSession({ ...res, name }, name);
       }
     } catch (err: any) {
       setError(err.message || "An error occurred");
@@ -1430,16 +1478,42 @@ function SignInModal({ onClose }: { onClose: () => void }) {
 
             {/* Phone field — always shown in register (optional), or in login when phone tab active */}
             {(usePhone || !isLogin) && (
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  required={usePhone && isLogin}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder={isLogin ? "10-digit Phone Number" : "Phone Number (optional — links app account)"}
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all"
+                />
+                {isLogin && usePhone && (
+                  <button
+                    type="button"
+                    disabled={sendingOtp || loading}
+                    onClick={handleSendOtp}
+                    className="flex-shrink-0 px-3 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-bold whitespace-nowrap disabled:opacity-50"
+                  >
+                    {sendingOtp ? "..." : otpSent ? "Resend" : "Send OTP"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {isLogin && usePhone && otpSent && (
               <input
-                type="tel"
-                required={usePhone && isLogin}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder={isLogin ? "Phone Number" : "Phone Number (optional — links app account)"}
-                className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all"
+                type="text"
+                inputMode="numeric"
+                required
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                placeholder="Enter OTP"
+                className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder:text-white/80 px-4 py-3 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all tracking-widest"
               />
             )}
 
+            {/* Password — email login / register only */}
+            {(!isLogin || !usePhone) && (
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -1458,8 +1532,13 @@ function SignInModal({ onClose }: { onClose: () => void }) {
                 {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <button disabled={loading} type="submit" className="w-full mt-2 py-3 bg-amber-400 hover:bg-amber-500 text-black font-bold rounded-xl transition-all text-xs flex justify-center items-center h-[44px] shadow-lg shadow-amber-900/20 hover:-translate-y-0.5 active:translate-y-0">
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isLogin ? "Log In" : "Register")}
+            )}
+            <button disabled={loading || sendingOtp} type="submit" className="w-full mt-2 py-3 bg-amber-400 hover:bg-amber-500 text-black font-bold rounded-xl transition-all text-xs flex justify-center items-center h-[44px] shadow-lg shadow-amber-900/20 hover:-translate-y-0.5 active:translate-y-0">
+              {loading || sendingOtp ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                isLogin
+                  ? (usePhone ? (otpSent ? "Verify OTP" : "Send OTP & Continue") : "Log In")
+                  : "Register"
+              )}
             </button>
           </form>
 

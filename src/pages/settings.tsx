@@ -5,6 +5,7 @@ import {
   SlidersHorizontal,
   Paintbrush,
   Mail,
+  Smartphone,
   DollarSign,
   HardDrive,
   Search,
@@ -53,6 +54,7 @@ const SECTIONS = [
   { id: "misc", label: "Misc Settings", icon: SlidersHorizontal },
   { id: "customization", label: "Customization", icon: Paintbrush },
   { id: "mail", label: "Mail Settings", icon: Mail },
+  { id: "sms", label: "SMS / OTP", icon: Smartphone },
   { id: "currency", label: "Currency Settings", icon: DollarSign },
   { id: "payment", label: "Payment Settings", icon: CreditCard },
   { id: "subscription", label: "Subscription Settings", icon: Crown },
@@ -152,6 +154,7 @@ export default function Settings() {
       case "misc": return handleSaveMisc();
       case "customization": return handleSaveCustomization();
       case "mail": return handleSaveMail();
+      case "sms": return handleSaveSms();
       case "currency": return handleSaveCurrency();
       case "payment": return handleSavePayment();
       case "subscription": return handleSaveSubscription();
@@ -464,6 +467,72 @@ export default function Settings() {
       });
       await refreshSettings();
       toast({ title: "Mail settings saved!" });
+    } catch (err: any) {
+      toast({ title: err?.message || "Save failed", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── SMS / OTP (Message Central) ────────────────────────────────────────
+  const [sms, setSms] = useState({
+    mcEnabled: ctxSettings.mcEnabled || false,
+    mcCustomerId: ctxSettings.mcCustomerId || "",
+    mcAuthToken: "",
+    mcEmail: ctxSettings.mcEmail || "",
+    mcPassword: "",
+    mcBaseUrl: ctxSettings.mcBaseUrl || "https://cpaas.messagecentral.com",
+    mcCountryCode: ctxSettings.mcCountryCode || "91",
+    mcOtpLength: String(ctxSettings.mcOtpLength || 4),
+    mcFlowType: ctxSettings.mcFlowType || "SMS",
+  });
+
+  useEffect(() => {
+    setSms({
+      mcEnabled: ctxSettings.mcEnabled || false,
+      mcCustomerId: ctxSettings.mcCustomerId || "",
+      mcAuthToken: "",
+      mcEmail: ctxSettings.mcEmail || "",
+      mcPassword: "",
+      mcBaseUrl: ctxSettings.mcBaseUrl || "https://cpaas.messagecentral.com",
+      mcCountryCode: ctxSettings.mcCountryCode || "91",
+      mcOtpLength: String(ctxSettings.mcOtpLength || 4),
+      mcFlowType: ctxSettings.mcFlowType || "SMS",
+    });
+  }, [
+    ctxSettings.mcEnabled,
+    ctxSettings.mcCustomerId,
+    ctxSettings.mcEmail,
+    ctxSettings.mcBaseUrl,
+    ctxSettings.mcCountryCode,
+    ctxSettings.mcOtpLength,
+    ctxSettings.mcFlowType,
+  ]);
+
+  const handleSaveSms = async () => {
+    setSaving(true);
+    try {
+      const otpLen = Math.min(8, Math.max(4, parseInt(sms.mcOtpLength, 10) || 4));
+      const payload: Record<string, any> = {
+        mcEnabled: sms.mcEnabled,
+        mcCustomerId: sms.mcCustomerId.trim(),
+        mcEmail: sms.mcEmail.trim(),
+        mcBaseUrl: sms.mcBaseUrl.trim() || "https://cpaas.messagecentral.com",
+        mcCountryCode: sms.mcCountryCode.trim().replace(/^\+/, "") || "91",
+        mcOtpLength: otpLen,
+        mcFlowType: sms.mcFlowType || "SMS",
+      };
+      if (sms.mcAuthToken.trim()) payload.mcAuthToken = sms.mcAuthToken.trim();
+      if (sms.mcPassword.trim()) payload.mcPassword = sms.mcPassword.trim();
+
+      await updateSettingsMutation.mutateAsync(payload);
+      updateCtx({
+        ...payload,
+        ...(sms.mcAuthToken.trim() ? { mcAuthToken: sms.mcAuthToken.trim() } : {}),
+        ...(sms.mcPassword.trim() ? { mcPassword: sms.mcPassword.trim() } : {}),
+      });
+      await refreshSettings();
+      toast({ title: "SMS / OTP settings saved!" });
     } catch (err: any) {
       toast({ title: err?.message || "Save failed", variant: "destructive" });
     } finally {
@@ -1297,7 +1366,141 @@ export default function Settings() {
     </div>
   );
 
+  const renderSms = () => (
+    <div>
+      <SectionTitle icon={Smartphone} label="SMS / OTP (Message Central)" />
 
+      <div className="mb-6 p-4 rounded-lg border border-border bg-card space-y-2">
+        <p className="text-sm font-semibold text-foreground">VerifyNow — website + app login</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Enable OTP login for the website and mobile app. Paste your Message Central Customer ID and Auth Token from the console.
+          Leave Auth Token / Password blank when saving to keep the existing secret.
+        </p>
+        <div className="flex items-center gap-3 pt-2">
+          <div className={`h-3 w-3 rounded-full ${sms.mcEnabled && sms.mcCustomerId ? "bg-green-500" : "bg-primary"}`} />
+          <span className="text-sm text-foreground">
+            {sms.mcEnabled && sms.mcCustomerId
+              ? "OTP provider enabled"
+              : "OTP provider disabled or incomplete"}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="flex items-center justify-between md:col-span-2 p-4 rounded-lg border border-border bg-card">
+          <div>
+            <p className="text-sm font-medium text-foreground">Enable Message Central OTP</p>
+            <p className="text-xs text-muted-foreground mt-0.5">When off, send-otp fails (except local/dev static OTP)</p>
+          </div>
+          <Switch
+            checked={sms.mcEnabled}
+            onCheckedChange={(v) => setSms({ ...sms, mcEnabled: v })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>Customer ID <span className="text-primary">*</span></Label>
+          <Input
+            value={sms.mcCustomerId}
+            onChange={(e) => setSms({ ...sms, mcCustomerId: e.target.value })}
+            placeholder="C-XXXXXXXX"
+            className={inputCls}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>Auth Token</Label>
+          <SecretInput
+            value={sms.mcAuthToken}
+            onChange={(e) => setSms({ ...sms, mcAuthToken: e.target.value })}
+            placeholder={ctxSettings.mcAuthToken ? "•••••••• (leave blank to keep)" : "Paste Auth Token"}
+            className={inputCls}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>Base URL</Label>
+          <Input
+            value={sms.mcBaseUrl}
+            onChange={(e) => setSms({ ...sms, mcBaseUrl: e.target.value })}
+            placeholder="https://cpaas.messagecentral.com"
+            className={inputCls}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>Country Code</Label>
+          <Input
+            value={sms.mcCountryCode}
+            onChange={(e) => setSms({ ...sms, mcCountryCode: e.target.value })}
+            placeholder="91"
+            className={inputCls}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>OTP Length</Label>
+          <Select
+            value={sms.mcOtpLength}
+            onValueChange={(v) => setSms({ ...sms, mcOtpLength: v })}
+          >
+            <SelectTrigger className={`${inputCls} h-11`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border text-foreground">
+              {[4, 5, 6, 7, 8].map((n) => (
+                <SelectItem key={n} value={String(n)}>{n} digits</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>Flow Type</Label>
+          <Select
+            value={sms.mcFlowType}
+            onValueChange={(v) => setSms({ ...sms, mcFlowType: v })}
+          >
+            <SelectTrigger className={`${inputCls} h-11`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border text-foreground">
+              <SelectItem value="SMS">SMS</SelectItem>
+              <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2 md:col-span-2 pt-2 border-t border-border">
+          <p className="text-xs text-muted-foreground">
+            Optional fallback if Auth Token is empty — Message Central token API uses Base64(password).
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>Email (token API)</Label>
+          <Input
+            value={sms.mcEmail}
+            onChange={(e) => setSms({ ...sms, mcEmail: e.target.value })}
+            placeholder="you@example.com"
+            className={inputCls}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>Password (token API)</Label>
+          <SecretInput
+            value={sms.mcPassword}
+            onChange={(e) => setSms({ ...sms, mcPassword: e.target.value })}
+            placeholder={ctxSettings.mcPassword ? "•••••••• (leave blank to keep)" : "Optional"}
+            className={inputCls}
+          />
+        </div>
+      </div>
+
+      <SaveBtn saving={saving} onClick={handleSaveSms} />
+    </div>
+  );
 
   const renderCurrency = () => (
     <div>
@@ -1667,6 +1870,7 @@ export default function Settings() {
       case "misc": return renderMisc();
       case "customization": return renderCustomization();
       case "mail": return renderMail();
+      case "sms": return renderSms();
       case "currency": return renderCurrency();
       case "payment": return renderPayment();
       case "subscription": return renderSubscription();
