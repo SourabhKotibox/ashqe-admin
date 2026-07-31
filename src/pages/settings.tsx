@@ -522,14 +522,41 @@ export default function Settings() {
         mcOtpLength: otpLen,
         mcFlowType: sms.mcFlowType || "SMS",
       };
-      if (sms.mcAuthToken.trim()) {
-        payload.mcAuthToken = sms.mcAuthToken.replace(/\s+/g, "").trim();
+      const tokenToSave = sms.mcAuthToken.replace(/\s+/g, "").trim();
+      const passwordToSave = sms.mcPassword.trim();
+      if (tokenToSave) payload.mcAuthToken = tokenToSave;
+      if (passwordToSave) payload.mcPassword = passwordToSave;
+
+      if (!payload.mcCustomerId) {
+        toast({ title: "Customer ID is required", variant: "destructive" });
+        return;
       }
-      if (sms.mcPassword.trim()) {
-        payload.mcPassword = sms.mcPassword.trim();
+      if (!tokenToSave && !passwordToSave && !ctxSettings.mcAuthTokenSet && !ctxSettings.mcPasswordSet) {
+        toast({
+          title: "Paste Auth Token or Email + Password",
+          description: "Otherwise OTP cannot be sent.",
+          variant: "destructive",
+        });
+        return;
       }
 
       const saved = await updateSettingsMutation.mutateAsync(payload);
+      const tokenSet = !!(saved?.mcAuthTokenSet || tokenToSave || ctxSettings.mcAuthTokenSet);
+      const passwordSet = !!(saved?.mcPasswordSet || passwordToSave || ctxSettings.mcPasswordSet);
+
+      // Update local form + context from save response — do NOT refresh
+      // (a public/stale GET was wiping SMS fields after a successful save)
+      setSms({
+        mcEnabled: payload.mcEnabled,
+        mcCustomerId: payload.mcCustomerId,
+        mcAuthToken: "",
+        mcEmail: payload.mcEmail,
+        mcPassword: "",
+        mcBaseUrl: payload.mcBaseUrl,
+        mcCountryCode: payload.mcCountryCode,
+        mcOtpLength: String(payload.mcOtpLength),
+        mcFlowType: payload.mcFlowType,
+      });
       updateCtx({
         mcEnabled: payload.mcEnabled,
         mcCustomerId: payload.mcCustomerId,
@@ -538,27 +565,21 @@ export default function Settings() {
         mcCountryCode: payload.mcCountryCode,
         mcOtpLength: payload.mcOtpLength,
         mcFlowType: payload.mcFlowType,
-        mcAuthTokenSet: !!(saved?.mcAuthTokenSet || payload.mcAuthToken || ctxSettings.mcAuthTokenSet),
-        mcPasswordSet: !!(saved?.mcPasswordSet || payload.mcPassword || ctxSettings.mcPasswordSet),
+        mcAuthTokenSet: tokenSet,
+        mcPasswordSet: passwordSet,
         mcAuthToken: "",
         mcPassword: "",
       });
-      setSms((prev) => ({
-        ...prev,
-        mcAuthToken: "",
-        mcPassword: "",
-        mcCustomerId: payload.mcCustomerId,
-        mcEmail: payload.mcEmail,
-        mcEnabled: payload.mcEnabled,
-      }));
-      await refreshSettings();
+      setReplaceToken(false);
+      setReplacePassword(false);
+
       toast({
         title: "SMS / OTP settings saved!",
         description: [
           payload.mcEnabled ? "Enabled" : "Disabled",
-          payload.mcCustomerId ? `Customer: ${payload.mcCustomerId}` : null,
-          payload.mcAuthToken || saved?.mcAuthTokenSet || ctxSettings.mcAuthTokenSet ? "Auth token stored" : "No auth token",
-          payload.mcPassword || saved?.mcPasswordSet || ctxSettings.mcPasswordSet ? "Password stored" : null,
+          `Customer ID: ${payload.mcCustomerId}`,
+          tokenSet ? "Auth token stored on server" : null,
+          passwordSet ? "Password stored on server" : null,
         ].filter(Boolean).join(" · "),
       });
     } catch (err: any) {
@@ -1439,18 +1460,29 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <Label className={labelCls}>
-            Auth Token{" "}
-            {ctxSettings.mcAuthTokenSet && (
-              <span className="text-green-500 font-normal text-xs ml-1">✓ saved on server</span>
-            )}
-          </Label>
-          <SecretInput
-            value={sms.mcAuthToken}
-            onChange={(e) => setSms({ ...sms, mcAuthToken: e.target.value })}
-            placeholder={ctxSettings.mcAuthTokenSet ? "•••••••• (leave blank to keep saved token)" : "Paste Auth Token"}
-            className={inputCls}
-          />
+          <Label className={labelCls}>Auth Token</Label>
+          {ctxSettings.mcAuthTokenSet && !replaceToken ? (
+            <div className="flex items-center justify-between gap-3 h-11 px-3 rounded-lg border border-green-500/40 bg-green-500/10">
+              <span className="text-sm text-green-500 font-medium">✓ Auth token saved on server</span>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+                onClick={() => { setReplaceToken(true); setSms({ ...sms, mcAuthToken: "" }); }}
+              >
+                Replace
+              </button>
+            </div>
+          ) : (
+            <SecretInput
+              value={sms.mcAuthToken}
+              onChange={(e) => setSms({ ...sms, mcAuthToken: e.target.value })}
+              placeholder="Paste Auth Token from Message Central"
+              className={inputCls}
+            />
+          )}
+          {ctxSettings.mcAuthTokenSet && !replaceToken && (
+            <p className="text-xs text-muted-foreground">Token is hidden for security. Click Replace to paste a new one.</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -1523,18 +1555,26 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <Label className={labelCls}>
-            Password (token API){" "}
-            {ctxSettings.mcPasswordSet && (
-              <span className="text-green-500 font-normal text-xs ml-1">✓ saved on server</span>
-            )}
-          </Label>
-          <SecretInput
-            value={sms.mcPassword}
-            onChange={(e) => setSms({ ...sms, mcPassword: e.target.value })}
-            placeholder={ctxSettings.mcPasswordSet ? "•••••••• (leave blank to keep)" : "Optional — recommended for auto token refresh"}
-            className={inputCls}
-          />
+          <Label className={labelCls}>Password (token API)</Label>
+          {ctxSettings.mcPasswordSet && !replacePassword ? (
+            <div className="flex items-center justify-between gap-3 h-11 px-3 rounded-lg border border-green-500/40 bg-green-500/10">
+              <span className="text-sm text-green-500 font-medium">✓ Password saved on server</span>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+                onClick={() => { setReplacePassword(true); setSms({ ...sms, mcPassword: "" }); }}
+              >
+                Replace
+              </button>
+            </div>
+          ) : (
+            <SecretInput
+              value={sms.mcPassword}
+              onChange={(e) => setSms({ ...sms, mcPassword: e.target.value })}
+              placeholder="Optional — recommended for auto token refresh"
+              className={inputCls}
+            />
+          )}
         </div>
       </div>
 
