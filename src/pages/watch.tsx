@@ -1929,19 +1929,26 @@ export default function WatchPage() {
   const liveStatus = String(profileUser?.subscriptionStatus || user?.subscriptionStatus || "").toLowerCase();
   const livePlan   = String(profileUser?.subscriptionPlan   || user?.subscriptionPlan || "free").toLowerCase();
   const expiryRaw = profileUser?.subscriptionExpiry || user?.subscriptionExpiry;
-  const hasPaidPlan =
+  const hasActiveSubscription =
     (profileUser?.subscription === true || (liveStatus === "active" && livePlan !== "free")) &&
     (!expiryRaw || new Date(expiryRaw).getTime() >= Date.now());
-  const userPlan = hasPaidPlan ? livePlan : "free";
+  const userPlan = hasActiveSubscription ? livePlan : "free";
   const requiredPlan = String(showData?.planRequired || "free").toLowerCase();
-  // Any active paid plan unlocks paid content (don't lock Standard users out of "premium" titles)
-  const isLockedForContent = requiredPlan !== "free" && !hasPaidPlan;
+  // Paid movie → locked until active subscription meets planRequired
+  const isLockedForContent =
+    requiredPlan !== "free" &&
+    (!hasActiveSubscription || getPlanLevel(userPlan) < getPlanLevel(requiredPlan));
+  const apiSaysLocked =
+    showData?.isLocked === true ||
+    showData?.currentEpisode?.isLocked === true ||
+    showData?.userAccess?.canAccessCurrentEpisode === false;
+  const contentLocked = apiSaysLocked || isLockedForContent;
 
   const goToEpisode = useCallback((ep: number) => {
     if (ep !== 0 && ep !== 1) return;
     if (ep !== 0) {
-      const isLocked = (showData?.isPremium === true || requiredPlan !== "free") && isLockedForContent;
-      if (isLocked) {
+      // Full movie: require active subscription that meets planRequired
+      if (contentLocked) {
         setLockPopupOpen(true);
         return;
       }
@@ -1959,7 +1966,7 @@ export default function WatchPage() {
     setCurrentEp(ep);
     setAutoPlay(true);
     navigate(`/watch/${contentId}/${ep}`);
-  }, [contentId, navigate, isLockedForContent, requiredPlan, showData, toast]);
+  }, [contentId, navigate, contentLocked, showData, toast]);
 
   // Keep episode in sync with URL (/watch/:id/0 = trailer, /1 = movie)
   useEffect(() => {
@@ -1969,10 +1976,6 @@ export default function WatchPage() {
     }
   }, [params.epNum]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const epLabel   = currentEp === 0 ? "Trailer" : "Movie";
-  const epTitle   = currentEp === 0 ? `Trailer - ${title}` : title;
-  const plotTitle = currentEp === 0 ? "About Trailer" : "Plot Synopsis";
-
   const pickPlayableUrl = (...candidates: Array<string | null | undefined>) => {
     for (const c of candidates) {
       const u = String(c || "").trim();
@@ -1981,14 +1984,34 @@ export default function WatchPage() {
     return "";
   };
 
+  // Paid movie without active matching subscription → block full playback
+  useEffect(() => {
+    if (!showData || isLoading) return;
+    if (currentEp === 1 && contentLocked) {
+      setLockPopupOpen(true);
+      if (pickPlayableUrl(showData?.trailerUrl)) {
+        setCurrentEp(0);
+        navigate(`/watch/${contentId}/0`, { replace: true });
+      }
+    }
+  }, [contentLocked, currentEp, showData, isLoading, contentId, navigate]);
+
+  const epLabel   = currentEp === 0 ? "Trailer" : "Movie";
+  const epTitle   = currentEp === 0 ? `Trailer - ${title}` : title;
+  const plotTitle = currentEp === 0 ? "About Trailer" : "Plot Synopsis";
+
   const videoSrc =
     currentEp === 0
       ? pickPlayableUrl(showData?.trailerUrl)
-      : pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl);
+      : contentLocked
+        ? ""
+        : pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl);
 
   const skipToMovie = useCallback(() => goToEpisode(1), [goToEpisode]);
   const hasTrailer = !!pickPlayableUrl(showData?.trailerUrl);
-  const hasMovie = !!pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl);
+  const hasMovie =
+    !contentLocked &&
+    !!pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl);
 
   if (isLoading) {
     return (

@@ -1,24 +1,48 @@
 import { Play, Star, Crown } from "lucide-react";
+import type { SyntheticEvent } from "react";
 import { getImageUrl } from "@/lib/api-client";
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
-function BadgeTop({ item }: { item: any }) {
-  const isSubscribed = (() => {
-    try {
-      const stored = localStorage.getItem("appUser") || localStorage.getItem("user");
-      if (stored) {
-        const u = JSON.parse(stored);
-        const status = String(u.subscriptionStatus || "").toLowerCase();
-        const plan = String(u.subscriptionPlan || "free").toLowerCase();
-        return status === "active" && plan !== "free";
-      }
-    } catch {}
-    return false;
-  })();
+function getPlanLevel(plan: string): number {
+  switch (String(plan || "free").toLowerCase()) {
+    case "premium": return 3;
+    case "standard": return 2;
+    case "basic": return 1;
+    default: return 0;
+  }
+}
 
-  const isPremium = item.isPremium || item.badge === "TOP" || item.badge === "EXCLUSIVE";
-  if (isPremium && !isSubscribed) {
+function readLocalUserPlan(): { plan: string; active: boolean } {
+  try {
+    const stored = localStorage.getItem("appUser") || localStorage.getItem("user");
+    if (!stored) return { plan: "free", active: false };
+    const u = JSON.parse(stored);
+    const status = String(u.subscriptionStatus || "").toLowerCase();
+    const plan = String(u.subscriptionPlan || "free").toLowerCase();
+    const expiryRaw = u.subscriptionExpiry;
+    const notExpired = !expiryRaw || new Date(expiryRaw).getTime() >= Date.now();
+    const active =
+      (u.subscription === true || (status === "active" && plan !== "free")) && notExpired;
+    return { plan: active ? plan : "free", active };
+  } catch {
+    return { plan: "free", active: false };
+  }
+}
+
+function BadgeTop({ item }: { item: any }) {
+  const { plan: userPlan, active: hasActiveSub } = readLocalUserPlan();
+  const planRequired = String(item.planRequired || item.contentPlan || "free").toLowerCase();
+  const lockedByApi = item.isLocked === true;
+  const lockedByPlan =
+    planRequired !== "free" &&
+    (!hasActiveSub || getPlanLevel(userPlan) < getPlanLevel(planRequired));
+  const showPremiumBadge =
+    lockedByApi ||
+    lockedByPlan ||
+    ((item.isPremium || item.requiresSubscription) && !hasActiveSub);
+
+  if (showPremiumBadge) {
     return (
       <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-400/90 text-black text-[9px] font-black rounded-md leading-none shadow">
         <Crown className="w-2.5 h-2.5" /> PREMIUM
@@ -146,8 +170,8 @@ export function PortraitCard({
           src={imgSrc}
           alt={item.title || ""}
           className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-          onError={(e) => {
-            const el = e.target as HTMLImageElement;
+          onError={(e: SyntheticEvent<HTMLImageElement>) => {
+            const el = e.currentTarget;
             el.style.backgroundColor = "#111";
             el.style.display = "none";
           }}
@@ -171,7 +195,7 @@ export function PortraitCard({
         {/* Play button — always visible on touch, hover-reveal on desktop */}
         <button
           className="absolute bottom-2 right-2 sm:bottom-2.5 sm:right-2.5 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-amber-400 text-black flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 scale-100 sm:scale-90 sm:group-hover:scale-100 transition-all duration-200 shadow-lg pointer-events-auto"
-          onClick={(e) => {
+          onClick={(e: SyntheticEvent) => {
             e.stopPropagation();
             onClick();
           }}
@@ -234,8 +258,8 @@ export function LandscapeCard({
           src={imgSrc}
           alt=""
           className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-          onError={(e) => {
-            const el = e.target as HTMLImageElement;
+          onError={(e: SyntheticEvent<HTMLImageElement>) => {
+            const el = e.currentTarget;
             el.style.backgroundColor = "#111";
             el.style.display = "none";
           }}
@@ -259,7 +283,7 @@ export function LandscapeCard({
         {/* Play button */}
         <button
           className="absolute bottom-2 right-2 sm:bottom-2.5 sm:right-2.5 z-20 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-amber-400 text-black flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 shadow-lg pointer-events-auto"
-          onClick={(e) => {
+          onClick={(e: SyntheticEvent) => {
             e.stopPropagation();
             onClick();
           }}

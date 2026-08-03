@@ -142,13 +142,18 @@ export default function MovieDetailPage() {
   const status = String(profileUser?.subscriptionStatus || user?.subscriptionStatus || "").toLowerCase();
   const plan = String(profileUser?.subscriptionPlan || user?.subscriptionPlan || "free").toLowerCase();
   const expiryRaw = profileUser?.subscriptionExpiry || user?.subscriptionExpiry;
-  const hasPaidPlan =
+  const hasActiveSubscription =
     (profileUser?.subscription === true || (status === "active" && plan !== "free")) &&
     (!expiryRaw || new Date(expiryRaw).getTime() >= Date.now());
-  const userPlan = hasPaidPlan ? plan : "free";
+  const userPlan = hasActiveSubscription ? plan : "free";
   const planRequired = String(item?.planRequired || "free").toLowerCase();
-  // Any active paid plan unlocks paid titles
-  const isLocked = planRequired !== "free" && !hasPaidPlan;
+  // Paid movie → locked unless active subscription meets planRequired
+  const isLocked =
+    planRequired !== "free" &&
+    (!hasActiveSubscription || getPlanLevel(userPlan) < getPlanLevel(planRequired));
+  // Prefer API lock flag when present
+  const apiLocked = item?.isLocked === true;
+  const contentLocked = apiLocked || isLocked;
 
   const heroBg = getImageUrl(item.backdrop || item.poster || item.posterImage || item.thumbnail) || "";
   const posterImg = getImageUrl(item.poster || item.posterImage || item.thumbnail || item.backdrop) || "";
@@ -268,7 +273,7 @@ export default function MovieDetailPage() {
           <div className="flex items-stretch gap-2 sm:gap-3 flex-wrap">
             <button
               onClick={() => {
-                if (isLocked) {
+                if (contentLocked) {
                   setPlansModalOpen(true);
                 } else if (item.trailerUrl) {
                   setLocation(`/watch/${id}/0`);
@@ -278,8 +283,8 @@ export default function MovieDetailPage() {
               }}
               className="flex-1 min-w-[140px] sm:flex-none flex items-center justify-center gap-2 px-6 sm:px-9 py-3.5 font-black rounded-2xl text-sm tracking-wide transition-all active:scale-[0.98] bg-amber-400 hover:bg-amber-300 text-black shadow-[0_8px_28px_rgba(255,140,56,0.35)]"
             >
-              {isLocked ? <Crown className="w-4 h-4 fill-black shrink-0" /> : <Play className="w-4 h-4 fill-black shrink-0" />}
-              {isLocked ? "Unlock Now" : "Watch Now"}
+              {contentLocked ? <Crown className="w-4 h-4 fill-black shrink-0" /> : <Play className="w-4 h-4 fill-black shrink-0" />}
+              {contentLocked ? "Unlock Now" : "Watch Now"}
             </button>
 
             <button
