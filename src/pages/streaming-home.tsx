@@ -10,6 +10,8 @@ import {
   TrendingUp, Flame, Sparkles, Smartphone, Lock, Crown, Bell,
   Loader2, Clock, Check, EyeOff, AlertCircle, ListPlus, Send, Eye, Clapperboard, Bookmark,
   Volume2, VolumeX, ExternalLink, SkipForward,
+  Monitor,
+  Video,
 } from "lucide-react";
 import {
   useGetWebHome, useGetWebBrowse, loginClient, registerClient, sendOtpClient, verifyOtpClient, useGetPages,
@@ -49,7 +51,7 @@ interface ContentItem {
   planRequired?: string;
 }
 
-type Tab = "home" | "movies" | "new";
+type Tab = "home" | "movies" | "new" | "tvshows" | "drama";
 
 const PLAN_LEVEL: Record<string, number> = { free: 0, basic: 1, standard: 2, premium: 3 };
 
@@ -1595,6 +1597,7 @@ function SignInModal({ onClose }: { onClose: () => void }) {
 const NAV_TABS: { label: string; tab: Tab; icon: React.ReactNode }[] = [
   { label: "Home", tab: "home", icon: null },
   { label: "Movies", tab: "movies", icon: <Film className="w-3.5 h-3.5" /> },
+  { label: "Web Series", tab: "tvshows", icon: <Monitor className="w-3.5 h-3.5" /> },
   { label: "New & Hot", tab: "new", icon: <Flame className="w-3.5 h-3.5" /> },
 ];
 
@@ -2157,7 +2160,11 @@ export default function StreamingHomePage() {
 
   const navigateToContent = useCallback((item: any) => {
     const id = item.contentId || item.id || item._id;
-    setLocation(`/movie/${id}`);
+    if (item.type === 'show' || item.type === 'tvshow' || item.type === 'tvshows') {
+      setLocation(`/show/${id}`);
+    } else {
+      setLocation(`/movie/${id}`);
+    }
   }, [setLocation]);
 
   const handlePlay = useCallback((item: any) => {
@@ -2189,7 +2196,7 @@ export default function StreamingHomePage() {
     <div className="min-h-screen bg-[#030306] font-sans selection:bg-amber-400/30 text-white pb-20 sm:pb-0 overflow-x-hidden">
       <PublicHeader
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => { if (tab === "tvshows") setLocation("/tv-shows-browse"); else setActiveTab(tab); }}
         onSignIn={() => setShowSignIn(true)}
         onSignOut={handleSignOut}
         user={user}

@@ -95,7 +95,8 @@ function ThemeApplier() {
     const frontendPrefixes = [
       "/membership", "/account", "/wishlist", 
       "/help-support", "/browse", 
-      "/movie", "/page", "/login", "/register"
+      "/movie", "/page", "/login", "/register",
+      "/tv-shows-browse", "/show"
     ];
     
     const isFrontend = location === "/" || location === "" || frontendPrefixes.some(p => location.startsWith(p));
@@ -173,7 +174,15 @@ import GoogleAdsPage from "@/pages/google-ads";
 import NewHotManagement from "@/pages/new-hot-management";
 import Reviews from "@/pages/reviews";
 import RevenueAnalyticsPage from "@/pages/revenue-analytics";
+import TvShowsPage from "@/pages/tv-shows";
+import TvShowForm from "@/pages/tv-show-form";
+import TVShowDetailPage from "@/pages/tv-show-detail";
+import EpisodesPage from "@/pages/episodes";
+import EpisodeForm from "@/pages/episode-form";
+import SeasonsPage from "@/pages/seasons";
+import SeasonForm from "@/pages/season-form";
 
+import TvShowsPublicPage from "@/pages/tv-shows-public";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -195,6 +204,9 @@ const routePermissions: Record<string, string | null> = {
   "/languages": "languages",
   "/genres": "genres",
   "/movies": "movies",
+  "/tv-shows": "tvShows",
+  "/episodes": "tvShows",
+  "/seasons": "tvShows",
   "/categories": "categories",
   "/ads": "ads",
   "/google-ads": "ads",
@@ -303,6 +315,15 @@ function AdminRoutes() {
               <Route path="/movies/new" component={MovieForm} />
               <Route path="/movies/:id/edit" component={MovieForm} />
               <Route path="/movies" component={MoviesPage} />
+              <Route path="/tv-shows/new" component={TvShowForm} />
+              <Route path="/tv-shows/:id/edit" component={TvShowForm} />
+              <Route path="/tv-shows" component={TvShowsPage} />
+              <Route path="/episodes/new" component={EpisodeForm} />
+              <Route path="/episodes/:id/edit" component={EpisodeForm} />
+              <Route path="/episodes" component={EpisodesPage} />
+              <Route path="/seasons/new" component={SeasonForm} />
+
+              <Route path="/seasons" component={SeasonsPage} />
               <Route path="/ads/:id" component={AdForm} />
               <Route path="/ads" component={AdsPage} />
               <Route path="/google-ads" component={GoogleAdsPage} />
@@ -382,6 +403,8 @@ function Router() {
       <Route path="/watch/:id" component={WatchPage} />
       <Route path="/browse/:tab" component={CategoriesBrowsePage} />
       <Route path="/browse" component={CategoriesBrowsePage} />
+      <Route path="/tv-shows-browse" component={TvShowsPublicPage} />
+      <Route path="/show/:id" component={TVShowDetailPage} />
       <Route path="/account" component={UserProfilePage} />
       <Route path="/wishlist" component={WishlistPage} />
       <Route path="/help-support" component={HelpSupportPage} />

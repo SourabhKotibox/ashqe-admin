@@ -1072,7 +1072,7 @@ function VideoPlayer({
         preload="auto"
         playsInline
         style={{ outline: "none" }}
-        crossOrigin="anonymous"
+        crossOrigin={subtitles && subtitles.length > 0 ? "anonymous" : undefined}
         onLoadedMetadata={() => {
           const v = videoRef.current;
           if (!v) return;

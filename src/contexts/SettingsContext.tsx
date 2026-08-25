@@ -517,6 +517,8 @@ export function applyColorTheme(theme: string) {
   
   // Base primary colors in HSL for Tailwind
   const themeMap: Record<string, string> = {
+    "amber": "25 100% 61%", // #FF8C38 (Ashqe Logo Orange)
+    "orange": "25 100% 61%", // #FF8C38
     "blue-green": "217 91% 60%", // #3b82f6
     "orange-yellow": "24 95% 53%", // #f97316
     "pink-purple": "330 81% 60%", // #ec4899

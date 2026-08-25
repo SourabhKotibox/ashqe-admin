@@ -188,7 +188,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#09090e]/90 backdrop-blur sticky top-0 z-25">
           <div className="flex items-center gap-2">
             <Crown className="w-5 h-5 text-amber-500 fill-amber-500 animate-pulse" />
-            <h3 className="text-foreground font-extrabold text-lg sm:text-xl tracking-tight">Choose Your Premium Plan</h3>
+            <h3 className="text-white font-extrabold text-lg sm:text-xl tracking-tight">Choose Your Premium Plan</h3>
           </div>
           <button 
             onClick={onClose}
@@ -200,14 +200,14 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-8">
-          <p className="text-foreground/70 text-sm text-center max-w-lg mx-auto mb-8 leading-relaxed">
+          <p className="text-white/70 text-sm text-center max-w-lg mx-auto mb-8 leading-relaxed">
             Unlock unlimited access to the entire Ashqe library. Supercharge your streaming experience with crystal-clear HD and zero ads.
           </p>
 
           {loadingPlans ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-foreground/65 text-xs">Loading plans...</p>
+              <p className="text-white/65 text-xs">Loading plans...</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -235,41 +235,41 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
                     {/* Plan Header */}
                     <div>
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className={`text-base font-black uppercase tracking-wide ${isPremium ? 'text-amber-400' : 'text-foreground'}`}>
+                        <h4 className={`text-base font-black uppercase tracking-wide ${isPremium ? 'text-amber-400' : 'text-white'}`}>
                           {plan.name}
                         </h4>
                         {isPremium && <Sparkles className="w-4 h-4 text-amber-400" />}
                       </div>
 
                       {/* Plan Description */}
-                      <p className="text-foreground/70 text-xs min-h-[36px] mb-4 leading-normal">
+                      <p className="text-white/70 text-xs min-h-[36px] mb-4 leading-normal">
                         {plan.description}
                       </p>
 
                       {/* Plan Price */}
                       <div className="flex items-baseline gap-1 mt-1 mb-2">
-                        <span className="text-3xl font-black text-foreground">{settings?.currencyPosition === 'before' ? (settings?.currencySymbol || '₹') + (plan.totalPrice ?? plan.price) : (plan.totalPrice ?? plan.price) + ' ' + (settings?.currencySymbol || '₹')}</span>
-                        <span className="text-sm font-medium text-foreground/70">/ {plan.duration || 'month'}</span>
+                        <span className="text-3xl font-black text-white">{settings?.currencyPosition === 'before' ? (settings?.currencySymbol || '₹') + (plan.totalPrice ?? plan.price) : (plan.totalPrice ?? plan.price) + ' ' + (settings?.currencySymbol || '₹')}</span>
+                        <span className="text-sm font-medium text-white/70">/ {plan.duration || 'month'}</span>
                       </div>
 
                       {/* Plan Features */}
                       <ul className="space-y-3 mb-8">
-                        <li className="flex items-center gap-2.5 text-xs text-zinc-350">
+                        <li className="flex items-center gap-2.5 text-xs text-white/80">
                           <Check className="w-4 h-4 text-primary flex-shrink-0" />
                           <span>Access all premium content</span>
                         </li>
                         {plan.level >= 2 && (
-                          <li className="flex items-center gap-2.5 text-xs text-zinc-350">
+                          <li className="flex items-center gap-2.5 text-xs text-white/80">
                             <Check className="w-4 h-4 text-primary flex-shrink-0" />
                             <span>HD & 4K streaming quality</span>
                           </li>
                         )}
-                        <li className="flex items-center gap-2.5 text-xs text-zinc-350">
+                        <li className="flex items-center gap-2.5 text-xs text-white/80">
                           <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                          <span>Valid for <strong className="text-foreground font-semibold">{plan.durationValue} {plan.duration}</strong></span>
+                          <span>Valid for <strong className="text-white font-semibold">{plan.durationValue} {plan.duration}</strong></span>
                         </li>
                         {plan.discount > 0 && (
-                          <li className="flex items-center gap-2.5 text-xs text-zinc-350">
+                          <li className="flex items-center gap-2.5 text-xs text-white/80">
                             <Check className="w-4 h-4 text-amber-400 flex-shrink-0" />
                             <span><strong className="text-amber-400">{plan.discount}% discount</strong> applied</span>
                           </li>
@@ -284,7 +284,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
                       className={`w-full py-3 rounded-xl font-bold transition-all duration-300 text-sm tracking-wide active:scale-95 flex items-center justify-center gap-2 ${
                         isPopular
                           ? "bg-primary text-white hover:bg-primary/90 shadow-[0_8px_20px_rgba(229,9,20,0.3)]"
-                          : "bg-zinc-800 text-foreground hover:bg-zinc-700 hover:text-foreground"
+                          : "bg-zinc-800 text-white hover:bg-zinc-700 hover:text-white"
                       } disabled:opacity-50 disabled:pointer-events-none`}
                     >
                       {createOrderMutation.isPending && selectedPlanId === (plan.id || plan._id) ? (

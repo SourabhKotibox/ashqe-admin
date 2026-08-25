@@ -67,7 +67,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["/tv-shows"]);
   const { data: user, isLoading } = useGetMe();
   const { language, setLanguage, t } = useLanguage();
   const { settings } = useSettings();
@@ -97,6 +97,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: "/languages", label: t('nav.languages'), icon: Languages, permission: "languages" },
         { href: "/genres", label: t('nav.genres'), icon: Tags, permission: "genres" },
         { href: "/movies", label: t('nav.movies'), icon: Film, permission: "movies" },
+        {
+          href: "/tv-shows",
+          label: "Web Series",
+          icon: Monitor,
+          permission: "tvShows",
+          children: [
+            { href: "/tv-shows", label: "Web Series", icon: Monitor, permission: "tvShows" },
+            { href: "/seasons", label: "Seasons", icon: LayoutList, permission: "tvShows" },
+            { href: "/episodes", label: "Episodes", icon: Video, permission: "tvShows" },
+          ],
+        },
         {
           href: "/ads-group",
           label: "Ads",

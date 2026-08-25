@@ -147,7 +147,7 @@ export default function BannersPage() {
           <SelectContent className="bg-muted border-border text-foreground">
             <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="movie">Movies</SelectItem>
-            <SelectItem value="tvshow">TV Shows</SelectItem>
+            <SelectItem value="tvshow">Web Seriess</SelectItem>
             <SelectItem value="drama">Short Dramas</SelectItem>
             <SelectItem value="promotional">Promotional</SelectItem>
           </SelectContent>
@@ -236,7 +236,7 @@ export default function BannersPage() {
                               }`}>
                                 {banner.content.contentType === 'movie' ? 'Movie' :
                                  banner.content.contentType === 'drama' ? 'Short Drama' :
-                                 'TV Show'}
+                                 'Web Series'}
                               </span>
                             ) : (
                               <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">

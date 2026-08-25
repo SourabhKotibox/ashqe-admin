@@ -241,7 +241,7 @@ const SAMPLE_VARS: Record<string, string> = {
 const NOTIFICATION_PARAMS = [
   "ID", "User Name", "Platform Name", "Description / Note", "Your Name", "Your Position",
   "User' ID", "User Password", "Site URL", "Episode Name", "Movie Name",
-  "Season Name", "TV Show Name", "End Date", "Start Date", "Plan Name",
+  "Season Name", "Web Series Name", "End Date", "Start Date", "Plan Name",
   "Content Type", "OTP Code", "Payment Method", "Price", "Discount",
   "Coupon Discount", "Tax", "Total Amount", "Duration",
 ];

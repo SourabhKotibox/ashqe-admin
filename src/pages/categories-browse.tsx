@@ -30,7 +30,7 @@ export default function CategoriesBrowsePage() {
   const searchString = useSearch();
   const [, setLocation] = useLocation();
   const params = useParams<{ tab?: string }>();
-  const [activeTab, setActiveTab] = useState<"home" | "movies" | "new">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "movies" | "new" | "tvshows" | "drama">("home");
   const [plansModalOpen, setPlansModalOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
 
@@ -155,7 +155,7 @@ export default function CategoriesBrowsePage() {
     <div className="min-h-screen bg-[#030306] text-white">
       <PublicHeader
         activeTab={activeTab}
-        setActiveTab={(tab) => { setActiveTab(tab); setLocation("/"); }}
+        setActiveTab={(tab) => { if (tab === "tvshows") setLocation("/tv-shows-browse"); else { setActiveTab(tab); setLocation("/"); } }}
         onSignIn={() => setLocation("/login")}
         onSignOut={handleSignOut}
         user={user}
