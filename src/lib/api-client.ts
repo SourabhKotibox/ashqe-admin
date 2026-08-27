@@ -649,7 +649,7 @@ export const bulkDeleteBanners = async (ids) => {
 
 export const createBannerFromContent = async (data: {
   contentId: string;
-  contentSource: "movie" | "content";
+  contentSource: "movie" | "tvShow" | "content";
   title?: string;
   subtitle?: string;
   description?: string;
@@ -4046,6 +4046,7 @@ export const getTVShows = async (options?: {
   featured?: string;
   trending?: string;
   year?: string;
+  contentType?: string;
 }) => {
   const params = new URLSearchParams();
   if (options?.page) params.append('page', options.page.toString());
@@ -4058,6 +4059,7 @@ export const getTVShows = async (options?: {
   if (options?.featured) params.append('featured', options.featured);
   if (options?.trending) params.append('trending', options.trending);
   if (options?.year) params.append('year', options.year);
+  if (options?.contentType) params.append('contentType', options.contentType);
   return api(`/tv-shows?${params.toString()}`);
 };
 
@@ -4127,6 +4129,7 @@ export const useGetTVShows = (options?: {
   featured?: string;
   trending?: string;
   year?: string;
+  contentType?: string;
 }) => {
   return useQuery({
     queryKey: ['tv-shows', options],

@@ -32,7 +32,7 @@ function planNameToKey(name: string): string {
 
 type Tab = "Web Series Details" | "Basic Info" | "Subtitle Info" | "SEO Settings";
 
-const TABS: Tab[] = ["Web Series Details", "Basic Info", "SEO Settings"];
+const TABS: Tab[] = ["Web Series Details", "Basic Info", "Subtitle Info", "SEO Settings"];
 
 type QualityRow = { id: string; type: string; quality: string; filePath: string; url: string };
 type SubtitleRow = { id: string; language: string; filePath: string };
@@ -621,15 +621,6 @@ export default function TvShowForm() {
         toast({
           title: "Video/image still uploading",
           description: "Wait for the background upload to finish, then save. Do not save blob preview URLs.",
-          variant: "destructive",
-        });
-        setIsSaving(false);
-        return;
-      }
-      if (!payload.hlsUrl) {
-        toast({
-          title: "Web Series video required",
-          description: "Upload finished? Wait 1–2 seconds for auto-attach, or open Media Library and select the video.",
           variant: "destructive",
         });
         setIsSaving(false);
