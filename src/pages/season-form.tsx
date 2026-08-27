@@ -50,7 +50,7 @@ export default function SeasonForm() {
     try {
       // Creating a "season" means creating the first placeholder episode in that season
       await createEpisodeMutation.mutateAsync({
-        contentId: showId,
+        tvShowId: showId,
         season: parseInt(seasonNumber),
         episode: 1,
         title: `Season ${seasonNumber} - Episode 1`,
