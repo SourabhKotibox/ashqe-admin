@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import {
   ImageIcon, Plus, X, Trash2, Sparkles, Upload as UploadIcon,
@@ -95,6 +96,7 @@ function ImageBox({ label, preview, onOpen }: { label: string; preview: string; 
 
 export default function TvShowForm() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
@@ -632,6 +634,8 @@ export default function TvShowForm() {
       } else {
         await createTVShowMutation.mutateAsync(payload);
       }
+
+      await queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
 
       toast({ title: isEdit ? "Web Series updated successfully!" : "Web Series created successfully!" });
       setLocation("/tv-shows");
