@@ -4149,8 +4149,8 @@ export const useCreateTVShow = () => {
   const queryClient = useQueryClient();
   return useMutation<any, Error, any>({
     mutationFn: createTVShow,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
     },
   });
 };
@@ -4159,9 +4159,9 @@ export const useUpdateTVShow = () => {
   const queryClient = useQueryClient();
   return useMutation<any, Error, { id: string; data: any }>({
     mutationFn: ({ id, data }) => updateTVShow(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
-      queryClient.invalidateQueries({ queryKey: ['tv-show', variables.id] });
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
+      await queryClient.invalidateQueries({ queryKey: ['tv-show', variables.id] });
     },
   });
 };
@@ -4170,8 +4170,8 @@ export const useDeleteTVShow = () => {
   const queryClient = useQueryClient();
   return useMutation<any, Error, string>({
     mutationFn: deleteTVShow,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
     },
   });
 };
@@ -4180,8 +4180,8 @@ export const useUpdateTVShowStatus = () => {
   const queryClient = useQueryClient();
   return useMutation<any, Error, { id: string; data: { status: string; rejectionReason?: string } }>({
     mutationFn: ({ id, data }) => updateTVShowStatus(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
     },
   });
 };

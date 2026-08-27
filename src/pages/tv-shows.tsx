@@ -156,7 +156,7 @@ export default function TvShowsPage() {
 
     const matchLang =
       langFilter === "all" ||
-      m.languages.some((l: any) => l.name === langFilter);
+      (m.languages || []).some((l: any) => l.name === langFilter);
 
     const matchFeatured =
       featuredFilter === "all" ||
