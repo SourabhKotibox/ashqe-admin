@@ -634,7 +634,7 @@ export default function TvShowForm() {
       }
 
       toast({ title: isEdit ? "Web Series updated successfully!" : "Web Series created successfully!" });
-      setLocation("/tvShows");
+      setLocation("/tv-shows");
     } catch (error: any) {
       toast({
         title: error?.message || "Failed to save tvShow. Please try again.",
