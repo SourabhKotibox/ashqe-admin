@@ -148,8 +148,13 @@ function VideoPlayer({
   const resumeAppliedRef = useRef(false);
   const playingRef = useRef(false);
   const autoPlayRef = useRef(autoPlay);
+  const userPausedRef = useRef(false);
   playingRef.current = playing;
-  autoPlayRef.current = autoPlay;
+  // Do not keep rewriting autoPlayRef from the prop — that would force-play after the user pauses.
+
+  const wantsPlayback = useCallback(() => {
+    return !userPausedRef.current && (playingRef.current || autoPlayRef.current);
+  }, []);
 
   const recordViewMutation = useRecordView();
   const viewRecordedRef = useRef(false);
@@ -254,14 +259,32 @@ function VideoPlayer({
     setSettingsOpen(false);
     setCurrentMenu("main");
     setUiLocked(false);
+    userPausedRef.current = false;
+    autoPlayRef.current = autoPlay;
   }, [videoSrc]);
 
-  /* play / pause */
+  /* play / pause — always honor the user; never let HLS auto-resume a pause */
   const togglePlay = useCallback(async () => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) { await v.play().catch(() => {}); }
-    else          { v.pause(); }
+    if (v.paused) {
+      userPausedRef.current = false;
+      playingRef.current = true;
+      autoPlayRef.current = false;
+      setPlaying(true);
+      try {
+        await v.play();
+      } catch {
+        playingRef.current = false;
+        setPlaying(false);
+      }
+    } else {
+      userPausedRef.current = true;
+      playingRef.current = false;
+      autoPlayRef.current = false;
+      setPlaying(false);
+      v.pause();
+    }
     if (!uiLocked) revealControls();
   }, [revealControls, uiLocked]);
 
@@ -523,15 +546,24 @@ function VideoPlayer({
     if (!v) return;
 
     const onPlay = () => {
+      userPausedRef.current = false;
+      playingRef.current = true;
+      autoPlayRef.current = false;
       setPlaying(true);
       scheduleHide();
     };
     const onPause = () => {
+      // Ignore buffer/HLS stalls — only the user pause should flip the button
+      if (!userPausedRef.current) return;
+      playingRef.current = false;
       setPlaying(false);
       clearTimeout(hideTimerRef.current);
       setControlsVisible(true);
     };
     const onEnded = () => {
+      userPausedRef.current = true;
+      playingRef.current = false;
+      autoPlayRef.current = false;
       setPlaying(false);
       clearTimeout(hideTimerRef.current);
       setControlsVisible(true);
@@ -573,6 +605,8 @@ function VideoPlayer({
   // Listen to watch now triggers to play in fullscreen
   useEffect(() => {
     const handleForcePlay = () => {
+      userPausedRef.current = false;
+      playingRef.current = true;
       setPlaying(true);
       const v = videoRef.current;
       if (v) {
@@ -625,8 +659,10 @@ function VideoPlayer({
           resumeAppliedRef.current = true;
         }
         v.playbackRate = speed;
-        const shouldPlay = playingRef.current || autoPlayRef.current;
-        if (shouldPlay) v.play().catch(() => {});
+        if (wantsPlayback()) {
+          autoPlayRef.current = false;
+          v.play().catch(() => {});
+        }
       };
 
       if (isM3u8 && Hls.isSupported()) {
@@ -659,7 +695,6 @@ function VideoPlayer({
           onReady();
         });
         hls.on(Hls.Events.FRAG_BUFFERED, () => {
-          if (v.paused && (playingRef.current || autoPlayRef.current)) v.play().catch(() => {});
           setLoading(false);
         });
         hls.on(Hls.Events.ERROR, (_e, data) => {
@@ -699,7 +734,7 @@ function VideoPlayer({
         if (cancelled || !offlineUrl || !videoRef.current) return;
         const v2 = videoRef.current;
         const t = v2.currentTime || pendingSeekRef.current || 0;
-        const wasPlaying = !v2.paused || autoPlayRef.current || playingRef.current;
+        const wasPlaying = !userPausedRef.current && (!v2.paused || autoPlayRef.current || playingRef.current);
         if (hlsRef.current) {
           hlsRef.current.destroy();
           hlsRef.current = null;
@@ -734,7 +769,7 @@ function VideoPlayer({
           const t = vid.currentTime;
           if (t > 0.25) vid.currentTime = t + 0.01;
         } catch { /* ignore */ }
-        if (playingRef.current || autoPlayRef.current) vid.play().catch(() => {});
+        if (playingRef.current && !userPausedRef.current) vid.play().catch(() => {});
       }, 4000);
     };
     const onPlayingClear = () => {
@@ -1088,8 +1123,8 @@ function VideoPlayer({
             pendingSeekRef.current = null;
           }
           v.playbackRate = speed;
-          const shouldPlay = playingRef.current || autoPlayRef.current;
-          if (shouldPlay) {
+          if (wantsPlayback()) {
+            autoPlayRef.current = false;
             v.play().catch(() => {});
           }
         }}
@@ -1180,11 +1215,11 @@ function VideoPlayer({
 
       {/* Center play/pause — skip ±10 only on larger screens to avoid overlap */}
       <div
-        className={`absolute inset-0 flex items-center justify-center z-20 transition-opacity duration-300 pointer-events-none ${
-          ctrlShow ? "opacity-100" : "opacity-0"
+        className={`absolute inset-0 flex items-center justify-center z-30 transition-opacity duration-300 ${
+          ctrlShow ? "opacity-100 pointer-events-none" : "opacity-0 pointer-events-none"
         }`}
       >
-        <div className="flex items-center gap-8 sm:gap-10 pointer-events-auto" data-player-control onClick={(e) => e.stopPropagation()}>
+        <div className={`flex items-center gap-8 sm:gap-10 ${ctrlShow ? "pointer-events-auto" : "pointer-events-none"}`} data-player-control onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); skip(-10); }}
@@ -1196,10 +1231,8 @@ function VideoPlayer({
 
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); void togglePlay(); }}
-            className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-400 hover:bg-amber-300 flex items-center justify-center shadow-lg shadow-amber-900/40 hover:scale-105 transition-all duration-200 active:scale-95 touch-manipulation ${
-              loading ? "opacity-0 pointer-events-none scale-90" : "opacity-100"
-            }`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); void togglePlay(); }}
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-400 hover:bg-amber-300 flex items-center justify-center shadow-lg shadow-amber-900/40 hover:scale-105 transition-all duration-200 active:scale-95 touch-manipulation"
             aria-label={playing ? "Pause" : "Play"}
           >
             {playing
@@ -1258,7 +1291,7 @@ function VideoPlayer({
           <div className="flex items-center gap-0.5 sm:gap-1.5">
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); void togglePlay(); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); void togglePlay(); }}
               className="text-white hover:text-amber-400 transition-colors p-2.5 touch-manipulation"
               aria-label={playing ? "Pause" : "Play"}
             >

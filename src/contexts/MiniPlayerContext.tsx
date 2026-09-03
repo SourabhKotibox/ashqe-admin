@@ -232,7 +232,18 @@ export function MiniPlayerProvider({ children }: { children: ReactNode }) {
     e?.stopPropagation?.();
     e?.preventDefault?.();
     bumpControls();
-    setPlaying((p) => !p);
+    const v = videoRef.current;
+    if (v) {
+      if (v.paused) {
+        v.play().catch(() => {});
+        setPlaying(true);
+      } else {
+        v.pause();
+        setPlaying(false);
+      }
+    } else {
+      setPlaying((p) => !p);
+    }
   };
 
   const expand = (e?: { stopPropagation?: () => void; preventDefault?: () => void }) => {
