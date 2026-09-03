@@ -199,11 +199,8 @@ export default function TVShowDetailPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={() => {
-                if (show?.trailerUrl) {
-                  setLocation(`/watch/${id}/0`);
-                } else {
-                  setLocation(`/watch/${id}/1`);
-                }
+                const epNum = firstEp?.episode || seasonEpisodes[0]?.episode || 1;
+                setLocation(`/watch/${id}/${epNum}`);
               }}
               className="flex items-center gap-2.5 px-8 py-3.5 bg-white hover:bg-zinc-200 text-black font-bold rounded-lg text-sm tracking-wide transition-all active:scale-95 shadow-xl"
             >

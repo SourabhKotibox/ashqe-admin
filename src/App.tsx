@@ -1,5 +1,5 @@
 
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, useParams, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { UploadQueueProvider } from "@/contexts/UploadQueueContext";
 import { MiniPlayerProvider } from "@/contexts/MiniPlayerContext";
@@ -95,7 +95,7 @@ function ThemeApplier() {
     const frontendPrefixes = [
       "/membership", "/account", "/wishlist", 
       "/help-support", "/browse", 
-      "/movie", "/page", "/login", "/register",
+      "/movie", "/watch", "/page", "/login", "/register",
       "/tv-shows-browse", "/show"
     ];
     
@@ -379,6 +379,29 @@ function AdminRoutes() {
   );
 }
 
+function isPublicFrontendPath(path: string) {
+  if (path === "/" || path === "") return true;
+  const prefixes = [
+    "/login", "/register", "/movie", "/watch", "/browse",
+    "/tv-shows-browse", "/show", "/account", "/wishlist",
+    "/help-support", "/page", "/membership", "/drama",
+  ];
+  return prefixes.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
+/** Old Watch Now URLs like /show/:id/episode/0 must open the player, not admin. */
+function ShowEpisodeRedirect() {
+  const params = useParams<{ id: string; epNum?: string }>();
+  const epNum = params.epNum && params.epNum !== "0" ? params.epNum : "1";
+  return <Redirect to={`/watch/${params.id}/${epNum}`} />;
+}
+
+function PublicOrAdminFallback() {
+  const [location] = useLocation();
+  if (isPublicFrontendPath(location)) return <NotFound />;
+  return <AdminRoutes />;
+}
+
 function Router() {
   const token = localStorage.getItem("adminAccessToken");
   const [location, setLocation] = useLocation();
@@ -404,7 +427,7 @@ function Router() {
       <Route path="/browse/:tab" component={CategoriesBrowsePage} />
       <Route path="/browse" component={CategoriesBrowsePage} />
       <Route path="/tv-shows-browse" component={TvShowsPublicPage} />
-      <Route path="/show/:id/episode/:epNum" component={WatchPage} />
+      <Route path="/show/:id/episode/:epNum" component={ShowEpisodeRedirect} />
       <Route path="/show/:id" component={TVShowDetailPage} />
       <Route path="/account" component={UserProfilePage} />
       <Route path="/wishlist" component={WishlistPage} />
@@ -414,7 +437,7 @@ function Router() {
       
       {/* Admin catch-all route (must be at the end) */}
       <Route>
-        <AdminRoutes />
+        <PublicOrAdminFallback />
       </Route>
     </Switch>
   );
