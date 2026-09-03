@@ -21,15 +21,17 @@ export default function WishlistPage() {
 
   const handlePlay = (item: any) => {
     const id = item.id || item.contentId || item._id;
-    if (item.type === "movie") {
-      setLocation(`/movie/${id}`);
+    const type = String(item.type || item.contentType || "").toLowerCase();
+    if (type === "show" || type === "tvshow" || type === "series") {
+      setLocation(`/show/${id}`);
     } else {
       setLocation(`/movie/${id}`);
     }
   };
 
   const handleRemove = (item: any) => {
-    const contentType = "movie";
+    const type = String(item.type || item.contentType || "movie").toLowerCase();
+    const contentType = type === "show" || type === "tvshow" || type === "series" ? "show" : "movie";
     toggleWishlist(
       { contentId: item.contentId || item.id, contentType: contentType as any },
       { onSuccess: () => refetch() }

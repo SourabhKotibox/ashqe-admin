@@ -289,10 +289,16 @@ export default function UserProfilePage() {
         phone: u.phone || u.mobile,
         avatar: u.avatar,
         subscriptionPlan: u.subscriptionPlan || "free",
+        subscriptionPlanName: u.subscriptionPlanName || u.subscriptionPlan || null,
         subscriptionStatus: u.subscriptionStatus || "inactive",
+        subscriptionExpiry: u.subscriptionExpiry || null,
+        subscription: !!u.subscription || (u.subscriptionStatus === "active" && u.subscriptionPlan && u.subscriptionPlan !== "free"),
+        subscriptionPlanId: u.subscriptionPlanId || null,
         profileLimitCount: u.profileLimitCount || 1,
       };
       localStorage.setItem("appUser", JSON.stringify(freshUser));
+      localStorage.setItem("user", JSON.stringify(freshUser));
+      window.dispatchEvent(new Event("user-updated"));
       setUser(freshUser);
       setEditName(freshUser.name || "");
       setEditEmail(freshUser.email || "");
@@ -523,7 +529,12 @@ export default function UserProfilePage() {
 
   const handlePlayItem = (item: any) => {
     const navId = item.contentId || item.id;
-    setLocation(`/movie/${navId}`);
+    const type = String(item.type || item.contentType || "").toLowerCase();
+    if (type === "show" || type === "tvshow" || type === "series") {
+      setLocation(`/show/${navId}`);
+    } else {
+      setLocation(`/movie/${navId}`);
+    }
   };
 
   if (!user) {
@@ -546,7 +557,10 @@ export default function UserProfilePage() {
     return <ProfileSelectScreen mainUserName={user.name} profileLimitCount={user.profileLimitCount || 1} userId={user.id || user._id || ""} onSelect={(profile) => { setActiveProfile(profile); window.dispatchEvent(new Event('profile-changed')); }} />;
   }
 
-  const isSubscribed = user.subscriptionStatus === "active" && user.subscriptionPlan !== "free";
+  const isSubscribed = !!user && (
+    user.subscription === true ||
+    (String(user.subscriptionStatus || "").toLowerCase() === "active" && user.subscriptionPlan && user.subscriptionPlan !== "free")
+  );
 
   const TABS: { id: ProfileTab; label: string; icon: React.ReactNode; count?: number }[] = [
     { id: "overview", label: "Overview", icon: <User className="w-4 h-4" /> },

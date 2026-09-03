@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Crown, Check, Loader2, Sparkles, Flame, Play } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
-import { useGetWebSubscriptionPlans, useCreateSubscriptionRazorpayOrder, useVerifySubscriptionRazorpayPayment } from "@/lib/api-client";
+import { useGetWebSubscriptionPlans, useCreateSubscriptionRazorpayOrder, useVerifySubscriptionRazorpayPayment, persistAppSessionUser } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 
 const normalizePlanKey = (name?: string) => {
@@ -14,17 +14,14 @@ const normalizePlanKey = (name?: string) => {
 };
 
 const persistSubscribedUser = (user: any, planName: string, expiry?: string | Date | null) => {
-  const updatedUser = {
+  return persistAppSessionUser({
     ...user,
     subscriptionPlan: normalizePlanKey(planName),
+    subscriptionPlanName: planName,
     subscriptionStatus: "active",
     subscription: true,
     subscriptionExpiry: expiry || null,
-  };
-  localStorage.setItem("appUser", JSON.stringify(updatedUser));
-  localStorage.setItem("user", JSON.stringify(updatedUser));
-  window.dispatchEvent(new Event("user-updated"));
-  return updatedUser;
+  });
 };
 
 const loadRazorpay = () => {

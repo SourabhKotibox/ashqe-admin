@@ -5,6 +5,7 @@ import {
   useCreateSubscriptionRazorpayOrder,
   useVerifySubscriptionRazorpayPayment,
   openRazorpayCheckout,
+  persistAppSessionUser,
 } from "@/lib/api-client";
 import { useSettings } from "@/contexts/SettingsContext";
 import {
@@ -139,9 +140,12 @@ export default function MembershipPage() {
       
       if (orderRes?.success && orderRes?.isFree) {
         showToast("🎉 Free plan activated successfully!", "success");
-        if (user) {
-          localStorage.setItem("appUser", JSON.stringify({ ...user, subscriptionPlan: selectedPlan?.name || "free", subscriptionStatus: "active" }));
-        }
+        persistAppSessionUser({
+          subscriptionPlan: selectedPlan?.name || "free",
+          subscriptionPlanName: selectedPlan?.name || "free",
+          subscriptionStatus: "active",
+          subscription: true,
+        });
         setTimeout(() => setLocation("/account"), 2000);
         return;
       }
@@ -163,16 +167,20 @@ export default function MembershipPage() {
         theme: { color: "#E50000" },
         onSuccess: async (response) => {
           try {
-            await verifyPaymentMutation.mutateAsync({
+            const verifyRes: any = await verifyPaymentMutation.mutateAsync({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               planId: selectedPlanId!,
             });
             showToast("🎉 Subscription activated! Welcome to VIP!", "success");
-            if (user) {
-              localStorage.setItem("appUser", JSON.stringify({ ...user, subscriptionPlan: selectedPlan?.name || "premium", subscriptionStatus: "active" }));
-            }
+            persistAppSessionUser({
+              subscriptionPlan: verifyRes?.subscriptionPlan || selectedPlan?.name || "premium",
+              subscriptionPlanName: verifyRes?.subscriptionPlan || selectedPlan?.name || "premium",
+              subscriptionStatus: "active",
+              subscriptionExpiry: verifyRes?.subscriptionExpiry || null,
+              subscription: true,
+            });
             setTimeout(() => setLocation("/account"), 2000);
           } catch {
             showToast("Payment received but activation failed. Contact support.", "error");

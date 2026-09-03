@@ -3563,7 +3563,43 @@ export const uploadAdminAvatar = async (file: File): Promise<{ avatarUrl: string
 
 // ─── LIKES (Public User) ──────────────────────────────────────────────────────
 
-export const toggleLikeItem = async (data: { contentId: string; contentType: 'movie' }) => {
+export const persistAppSessionUser = (partial: Record<string, any>) => {
+  try {
+    const prev = JSON.parse(localStorage.getItem('appUser') || localStorage.getItem('user') || '{}');
+    const next = { ...prev, ...partial };
+    localStorage.setItem('appUser', JSON.stringify(next));
+    localStorage.setItem('user', JSON.stringify(next));
+    window.dispatchEvent(new Event('user-updated'));
+    return next;
+  } catch {
+    return partial;
+  }
+};
+
+export const syncAppUserFromProfile = async () => {
+  try {
+    const res = await getAppProfile();
+    const profile = res?.data?.user || res?.data?.profile || res?.data;
+    if (!profile) return null;
+    return persistAppSessionUser({
+      id: profile.id || profile._id,
+      name: profile.name,
+      avatar: profile.avatar || null,
+      email: profile.email || null,
+      phone: profile.phone || null,
+      subscriptionPlan: profile.subscriptionPlan || 'free',
+      subscriptionPlanName: profile.subscriptionPlanName || profile.subscriptionPlan || null,
+      subscriptionStatus: profile.subscriptionStatus || (profile.subscription ? 'active' : 'inactive'),
+      subscriptionExpiry: profile.subscriptionExpiry || null,
+      subscription: !!profile.subscription || (profile.subscriptionStatus === 'active' && profile.subscriptionPlan && profile.subscriptionPlan !== 'free'),
+      subscriptionPlanId: profile.subscriptionPlanId || null,
+    });
+  } catch {
+    return null;
+  }
+};
+
+export const toggleLikeItem = async (data: { contentId: string; contentType: 'movie' | 'show' | 'drama' }) => {
   return api(`/like/${data.contentId}`, {
     method: 'POST',
     body: JSON.stringify({ contentType: data.contentType }),
@@ -3576,6 +3612,8 @@ export const useToggleLike = () => {
     mutationFn: toggleLikeItem,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['app-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['web-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['app-series'] });
     },
   });
 };
@@ -3966,8 +4004,23 @@ export const useCreateSubscriptionRazorpayOrder = () => {
 };
 
 export const useVerifySubscriptionRazorpayPayment = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: verifySubscriptionRazorpayPayment,
+    onSuccess: async (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['app-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['web-detail'] });
+      const synced = await syncAppUserFromProfile();
+      if (!synced && res) {
+        persistAppSessionUser({
+          subscriptionPlan: res.subscriptionPlan || res.subscriptionPlanName || 'premium',
+          subscriptionPlanName: res.subscriptionPlanName || res.subscriptionPlan || null,
+          subscriptionStatus: res.subscriptionStatus || 'active',
+          subscriptionExpiry: res.subscriptionExpiry || null,
+          subscription: true,
+        });
+      }
+    },
   });
 };
 

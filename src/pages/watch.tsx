@@ -76,6 +76,8 @@ function VideoPlayer({
   onNext,
   videoSettings,
   contentId,
+  contentType = "movie",
+  episodeId,
   resumeFrom,
   subtitles = [],
   onPlaybackSnapshot,
@@ -86,6 +88,8 @@ function VideoPlayer({
   onNext?: () => void;
   videoSettings?: Array<{ key: string; label: string; description?: string; url: string }> | null;
   contentId?: string;
+  contentType?: "movie" | "show" | "drama";
+  episodeId?: string;
   resumeFrom?: number;
   subtitles?: Array<{ language: string; code?: string; filePath?: string; url?: string }>;
   onPlaybackSnapshot?: (snap: { playing: boolean; currentTime: number; src: string }) => void;
@@ -153,9 +157,9 @@ function VideoPlayer({
   useEffect(() => {
     if (playing && !viewRecordedRef.current && contentId) {
       viewRecordedRef.current = true;
-      recordViewMutation.mutate({ contentId, contentType: 'movie' });
+      recordViewMutation.mutate({ contentId, contentType, episodeId });
     }
-  }, [playing, contentId]);
+  }, [playing, contentId, contentType, episodeId]);
 
   // If resumeFrom arrives after mount (async), apply it before the video has started
   useEffect(() => {
@@ -180,10 +184,11 @@ function VideoPlayer({
     lastSavedTimeRef.current = currentTime;
     saveProgressMutation.mutate({
       contentId,
+      episodeId,
       progressSeconds: Math.round(currentTime),
       durationSeconds: Math.round(duration),
     });
-  }, [currentTime, duration, contentId, playing]);
+  }, [currentTime, duration, contentId, episodeId, playing]);
 
   // Flush progress once on unmount
   useEffect(() => {
@@ -195,6 +200,7 @@ function VideoPlayer({
       if (d > 20 && t > 2 && Math.abs(t - lastSavedTimeRef.current) > 1) {
         saveProgressMutation.mutate({
           contentId,
+          episodeId,
           progressSeconds: Math.round(t),
           durationSeconds: Math.round(d),
         });
@@ -1790,7 +1796,22 @@ export default function WatchPage() {
   const showData = (detailData as any)?.content || detailData;
   const related: any[] = (detailData as any)?.related || [];
 
-  const title = showData?.title || "Movie";
+  const [currentEp, setCurrentEp]       = useState(() => parseInt(params.epNum || "1", 10));
+  const [autoPlay,  setAutoPlay]        = useState(false);
+  const [expanded,  setExpanded]        = useState(false);
+  const [lockPopupOpen, setLockPopupOpen] = useState(false);
+
+  const isSeries = showData?.type === "show" || showData?.contentType === "tvShow" || showData?.contentType === "show";
+  const seriesEpisodes: any[] = Array.isArray(showData?.episodes)
+    ? showData.episodes
+    : Array.isArray(showData?.seasons)
+      ? showData.seasons.flatMap((s: any) => s.episodes || [])
+      : [];
+  const publicContentType: "movie" | "show" = isSeries ? "show" : "movie";
+  const currentSeriesEpisode = isSeries && currentEp >= 1
+    ? seriesEpisodes.find((e: any) => Number(e.episode) === currentEp) || seriesEpisodes[currentEp - 1]
+    : null;
+  const title = showData?.title || (isSeries ? "Web Series" : "Movie");
 
 
   const thumbUrl = showData
@@ -1816,11 +1837,6 @@ export default function WatchPage() {
     } catch (e) {}
   }, []);
 
-  const [currentEp, setCurrentEp]       = useState(() => parseInt(params.epNum || "1", 10));
-  const [autoPlay,  setAutoPlay]        = useState(false);
-  const [expanded,  setExpanded]        = useState(false);
-  const [lockPopupOpen, setLockPopupOpen] = useState(false);
-
   // Keep mini-player meta fresh for leave handoff
   useEffect(() => {
     metaRef.current = {
@@ -1832,7 +1848,10 @@ export default function WatchPage() {
   }, [showData, contentId, currentEp]);
 
   // Fetch saved watch position so the player can resume from where the user left off
-  const { data: savedProgress } = useGetWatchProgress(contentId || undefined);
+  const { data: savedProgress } = useGetWatchProgress(
+    contentId || undefined,
+    currentSeriesEpisode?.id || currentSeriesEpisode?._id
+  );
 
   const { data: profileData } = useGetAppProfile();
   const { toast } = useToast();
@@ -1884,7 +1903,7 @@ export default function WatchPage() {
     }
 
     requestDownloadMutation.mutate(
-      { contentId, contentType: 'movie' },
+      { contentId, contentType: publicContentType },
       {
         onSuccess: async (data: any) => {
           const dlUrl = data?.data?.downloadUrl || data?.downloadUrl;
@@ -1944,38 +1963,6 @@ export default function WatchPage() {
     showData?.userAccess?.canAccessCurrentEpisode === false;
   const contentLocked = apiSaysLocked || isLockedForContent;
 
-  const goToEpisode = useCallback((ep: number) => {
-    if (ep !== 0 && ep !== 1) return;
-    if (ep !== 0) {
-      // Full movie: require active subscription that meets planRequired
-      if (contentLocked) {
-        setLockPopupOpen(true);
-        return;
-      }
-      const movieUrl =
-        showData?.hlsUrl || showData?.videoUrl || showData?.sourceVideoUrl || "";
-      if (!movieUrl || String(movieUrl).startsWith("blob:")) {
-        toast({
-          title: "Movie not ready yet",
-          description: "The full movie file is still processing. Try again in a few minutes.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    setCurrentEp(ep);
-    setAutoPlay(true);
-    navigate(`/watch/${contentId}/${ep}`);
-  }, [contentId, navigate, contentLocked, showData, toast]);
-
-  // Keep episode in sync with URL (/watch/:id/0 = trailer, /1 = movie)
-  useEffect(() => {
-    const fromUrl = parseInt(params.epNum || "1", 10);
-    if ((fromUrl === 0 || fromUrl === 1) && fromUrl !== currentEp) {
-      setCurrentEp(fromUrl);
-    }
-  }, [params.epNum]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const pickPlayableUrl = (...candidates: Array<string | null | undefined>) => {
     for (const c of candidates) {
       const u = String(c || "").trim();
@@ -1984,10 +1971,44 @@ export default function WatchPage() {
     return "";
   };
 
-  // Paid movie without active matching subscription → block full playback
+  const goToEpisode = useCallback((ep: number) => {
+    if (ep !== 0 && !isSeries && ep !== 1) return;
+    if (ep !== 0) {
+      if (contentLocked) {
+        setLockPopupOpen(true);
+        return;
+      }
+      const target = isSeries
+        ? (seriesEpisodes.find((e: any) => Number(e.episode) === ep) || seriesEpisodes[ep - 1])
+        : null;
+      const movieUrl = isSeries
+        ? pickPlayableUrl(target?.hlsUrl, target?.videoUrl, target?.sourceVideoUrl)
+        : pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl);
+      if (!movieUrl) {
+        toast({
+          title: isSeries ? "Episode not ready yet" : "Movie not ready yet",
+          description: "The video file is still processing. Try again in a few minutes.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    setCurrentEp(ep);
+    setAutoPlay(true);
+    navigate(`/watch/${contentId}/${ep}`);
+  }, [contentId, navigate, contentLocked, showData, toast, isSeries, seriesEpisodes]);
+
+  // Keep episode in sync with URL (/watch/:id/0 = trailer, /1 = movie or episode 1)
+  useEffect(() => {
+    const fromUrl = parseInt(params.epNum || "1", 10);
+    if (!Number.isFinite(fromUrl) || fromUrl < 0) return;
+    if (fromUrl !== currentEp) setCurrentEp(fromUrl);
+  }, [params.epNum]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Paid content without active matching subscription → block full playback
   useEffect(() => {
     if (!showData || isLoading) return;
-    if (currentEp === 1 && contentLocked) {
+    if (currentEp !== 0 && contentLocked) {
       setLockPopupOpen(true);
       if (pickPlayableUrl(showData?.trailerUrl)) {
         setCurrentEp(0);
@@ -1996,22 +2017,34 @@ export default function WatchPage() {
     }
   }, [contentLocked, currentEp, showData, isLoading, contentId, navigate]);
 
-  const epLabel   = currentEp === 0 ? "Trailer" : "Movie";
-  const epTitle   = currentEp === 0 ? `Trailer - ${title}` : title;
-  const plotTitle = currentEp === 0 ? "About Trailer" : "Plot Synopsis";
+  const epLabel   = currentEp === 0
+    ? "Trailer"
+    : isSeries
+      ? `S${currentSeriesEpisode?.season || 1}E${currentSeriesEpisode?.episode || currentEp}`
+      : "Movie";
+  const epTitle   = currentEp === 0
+    ? `Trailer - ${title}`
+    : isSeries
+      ? (currentSeriesEpisode?.title || `Episode ${currentEp} - ${title}`)
+      : title;
+  const plotTitle = currentEp === 0 ? "About Trailer" : isSeries ? "Episode Synopsis" : "Plot Synopsis";
 
   const videoSrc =
     currentEp === 0
       ? pickPlayableUrl(showData?.trailerUrl)
       : contentLocked
         ? ""
-        : pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl);
+        : isSeries
+          ? pickPlayableUrl(currentSeriesEpisode?.hlsUrl, currentSeriesEpisode?.videoUrl, currentSeriesEpisode?.sourceVideoUrl)
+          : pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl);
 
   const skipToMovie = useCallback(() => goToEpisode(1), [goToEpisode]);
   const hasTrailer = !!pickPlayableUrl(showData?.trailerUrl);
   const hasMovie =
     !contentLocked &&
-    !!pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl);
+    (isSeries
+      ? seriesEpisodes.some((e: any) => pickPlayableUrl(e.hlsUrl, e.videoUrl, e.sourceVideoUrl))
+      : !!pickPlayableUrl(showData?.hlsUrl, showData?.videoUrl, showData?.sourceVideoUrl));
 
   if (isLoading) {
     return (
@@ -2024,7 +2057,7 @@ export default function WatchPage() {
   return (
     <div className="min-h-screen bg-[#09090b] text-foreground">
       <PublicHeader
-        activeTab="movies"
+        activeTab={isSeries ? "tvshows" : "movies"}
         setActiveTab={(tab) => {
           if (tab === "home") navigate("/");
           else navigate(`/browse/${tab}`);
@@ -2056,19 +2089,25 @@ export default function WatchPage() {
           >
             <VideoPlayer
               videoSrc={videoSrc}
-              thumbnail={detail.thumbnail}
+              thumbnail={currentSeriesEpisode?.thumbnail ? getImageUrl(currentSeriesEpisode.thumbnail) : detail.thumbnail}
               autoPlay={autoPlay}
-              onNext={currentEp === 0 && hasMovie ? skipToMovie : undefined}
-              videoSettings={currentEp === 0 ? undefined : showData?.videoSettings}
-              contentId={currentEp === 1 ? contentId : undefined}
+              onNext={currentEp === 0 && hasMovie ? skipToMovie : (isSeries && currentEp >= 1 ? () => {
+                const idx = seriesEpisodes.findIndex((e: any) => Number(e.episode) === currentEp);
+                const next = seriesEpisodes[idx + 1];
+                if (next) goToEpisode(Number(next.episode) || currentEp + 1);
+              } : undefined)}
+              videoSettings={currentEp === 0 ? undefined : (currentSeriesEpisode?.videoSettings || showData?.videoSettings)}
+              contentId={currentEp !== 0 ? contentId : undefined}
+              contentType={publicContentType}
+              episodeId={currentSeriesEpisode?.id || currentSeriesEpisode?._id}
               resumeFrom={
                 miniResume && miniResume > 5
                   ? miniResume
-                  : currentEp === 1 && savedProgress?.progressPercent && savedProgress.progressPercent < 95
+                  : currentEp !== 0 && savedProgress?.progressPercent && savedProgress.progressPercent < 95
                   ? savedProgress.progressSeconds
                   : undefined
               }
-              subtitles={currentEp === 0 ? [] : showData?.subtitles || []}
+              subtitles={currentEp === 0 ? [] : (currentSeriesEpisode?.subtitles || showData?.subtitles || [])}
               onPlaybackSnapshot={onPlaybackSnapshot}
             />
             {currentAd && <AdOverlay ad={currentAd} onSkip={() => setAdDismissed(true)} />}
@@ -2097,7 +2136,7 @@ export default function WatchPage() {
             {!videoSrc && (
               <div className="absolute inset-0 z-[40] flex items-center justify-center bg-black/80 px-6 text-center">
                 <p className="text-sm text-foreground/80 font-semibold">
-                  {currentEp === 0 ? "Trailer not available." : "Movie video not available yet."}
+                  {currentEp === 0 ? "Trailer not available." : isSeries ? "Episode video not available yet." : "Movie video not available yet."}
                 </p>
               </div>
             )}
@@ -2110,9 +2149,9 @@ export default function WatchPage() {
             )}
           </div>
 
-          {/* Trailer / Movie switcher */}
-          {(hasTrailer || hasMovie) && (
-            <div className="flex items-center gap-2 mb-6 sm:mb-8">
+          {/* Trailer / Movie / Episode switcher */}
+          {(hasTrailer || hasMovie || seriesEpisodes.length > 0) && (
+            <div className="flex items-center gap-2 mb-6 sm:mb-8 flex-wrap">
               {hasTrailer && (
                 <button
                   type="button"
@@ -2126,17 +2165,35 @@ export default function WatchPage() {
                   Trailer
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => goToEpisode(1)}
-                className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors border ${
-                  currentEp === 1
-                    ? "bg-amber-400 text-black border-amber-400"
-                    : "bg-zinc-900 text-foreground/80 border-zinc-800 hover:border-zinc-600"
-                }`}
-              >
-                Play Movie
-              </button>
+              {isSeries ? seriesEpisodes.map((ep: any) => {
+                const num = Number(ep.episode) || 0;
+                return (
+                  <button
+                    key={ep.id || ep._id || num}
+                    type="button"
+                    onClick={() => goToEpisode(num)}
+                    className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors border ${
+                      currentEp === num
+                        ? "bg-amber-400 text-black border-amber-400"
+                        : "bg-zinc-900 text-foreground/80 border-zinc-800 hover:border-zinc-600"
+                    }`}
+                  >
+                    E{num}
+                  </button>
+                );
+              }) : (
+                <button
+                  type="button"
+                  onClick={() => goToEpisode(1)}
+                  className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors border ${
+                    currentEp === 1
+                      ? "bg-amber-400 text-black border-amber-400"
+                      : "bg-zinc-900 text-foreground/80 border-zinc-800 hover:border-zinc-600"
+                  }`}
+                >
+                  Play Movie
+                </button>
+              )}
             </div>
           )}
 
@@ -2167,7 +2224,9 @@ export default function WatchPage() {
               <div className="mb-5">
                 <h2 className="text-foreground font-bold text-sm mb-2">{plotTitle}</h2>
                 <p className="text-foreground/80 text-sm leading-relaxed">
-                  {expanded ? detail.description : `${detail.description.slice(0, 130)}...`}
+                  {expanded
+                    ? (currentEp !== 0 && currentSeriesEpisode?.description) || detail.description
+                    : `${((currentEp !== 0 && currentSeriesEpisode?.description) || detail.description).slice(0, 130)}...`}
                   {" "}
                   <button
                     onClick={() => setExpanded(e => !e)}
@@ -2193,7 +2252,7 @@ export default function WatchPage() {
                 <button
                   onClick={() => {
                     if (!user) { navigate("/login"); return; }
-                    toggleLikeMutation.mutate({ contentId, contentType: 'movie' as const }, {
+                    toggleLikeMutation.mutate({ contentId, contentType: publicContentType }, {
                       onSuccess: (data: any) => toast({ title: data?.data?.isLikedByUser ? "Liked!" : "Like removed" }),
                       onError: () => toast({ title: "Failed to update like", variant: "destructive" }),
                     });
@@ -2211,12 +2270,29 @@ export default function WatchPage() {
                   <span className="text-[11px] font-semibold mt-0.5">{fmtCount(detail.likes + (isLiked ? 1 : 0))} Likes</span>
                 </button>
 
+                {/* Share Button */}
+                <button
+                  onClick={() => {
+                    const shareUrl = showData?.shareUrl || `${window.location.origin}/watch/${contentId}`;
+                    if (navigator.share) {
+                      navigator.share({ title, url: shareUrl }).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(shareUrl).then(() => toast({ title: "Link copied" }));
+                    }
+                    recordShareMutation.mutate({ contentId, contentType: publicContentType });
+                  }}
+                  className="flex flex-col items-center gap-1 px-3 sm:px-4 py-2 transition-all active:scale-95 text-foreground/80 hover:text-foreground"
+                >
+                  <Share2 className="w-5 h-5" />
+                  <span className="text-[11px] font-semibold mt-0.5">{fmtCount(showData?.shares || 0)} Shares</span>
+                </button>
+
                 {/* Watchlist Button */}
                 <button
                   onClick={() => {
                     if (!user) { navigate("/login"); return; }
                     toggleWishlistMutation.mutate(
-                      { contentId, contentType: "movie" },
+                      { contentId, contentType: publicContentType },
                       {
                         onSuccess: (data: any) => {
                           toast({
@@ -2324,9 +2400,14 @@ export default function WatchPage() {
                 className="flex gap-4 overflow-x-auto pb-2"
                 style={{ scrollbarWidth: "none" } as React.CSSProperties}
               >
-                {related.map((r: any) => (
-                  <LandscapeCard key={r.id || r._id} item={r} onClick={() => navigate(`/movie/${r.id || r._id}`)} />
-                ))}
+                {related.map((r: any) => {
+                  const rid = r.id || r._id;
+                  const rType = String(r.type || r.contentType || "").toLowerCase();
+                  const isShow = rType === "show" || rType === "tvshow" || rType === "series";
+                  return (
+                    <LandscapeCard key={rid} item={r} onClick={() => navigate(isShow ? `/show/${rid}` : `/movie/${rid}`)} />
+                  );
+                })}
               </div>
             </div>
           )}

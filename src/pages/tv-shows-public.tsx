@@ -106,20 +106,7 @@ export default function TvShowsPublicPage() {
 
   const handlePlay = (item: any) => {
     const id = item.tvShowId || item.id || item._id;
-    const type = (item.type || item.contentType || "").toLowerCase();
-    const isDrama = type === "drama";
-    const isShow = type === "show" || type === "series";
-    if (isDrama) {
-      if (item.trailerUrl) {
-        setLocation(`/drama/${id}/episode/0`);
-      } else {
-        setLocation(`/drama/${id}/episode/1`);
-      }
-    } else if (isShow) {
-      setLocation(`/show/${id}`);
-    } else {
-      setLocation(`/movie/${id}`);
-    }
+    setLocation(`/show/${id}`);
   };
 
   const handleSignOut = () => {

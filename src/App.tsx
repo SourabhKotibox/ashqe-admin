@@ -404,6 +404,7 @@ function Router() {
       <Route path="/browse/:tab" component={CategoriesBrowsePage} />
       <Route path="/browse" component={CategoriesBrowsePage} />
       <Route path="/tv-shows-browse" component={TvShowsPublicPage} />
+      <Route path="/show/:id/episode/:epNum" component={WatchPage} />
       <Route path="/show/:id" component={TVShowDetailPage} />
       <Route path="/account" component={UserProfilePage} />
       <Route path="/wishlist" component={WishlistPage} />

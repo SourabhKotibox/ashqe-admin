@@ -13,7 +13,7 @@ import {
 import {
   Users, Clock, TrendingUp, Film, DollarSign, Star, HardDrive,
   CalendarRange, RefreshCw, RotateCcw, CreditCard, Eye,
-  Activity, MousePointer, BarChart2, ExternalLink, Megaphone,
+  Activity, MousePointer, BarChart2, ExternalLink, Megaphone, Heart, Tv,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -145,9 +145,12 @@ export default function Dashboard() {
     { title: "Expiring Soon", value: stats?.soonToExpire?.toLocaleString() ?? "0", icon: Clock, sub: "Within next 7 days", highlight: false },
     { title: "Total Reviews", value: stats?.totalReviews?.toLocaleString() ?? "0", icon: Star, sub: "Published reviews", highlight: false },
     { title: "Total Storage Usage", value: stats?.totalStorageUsage ?? "0 MB", icon: HardDrive, sub: `${stats?.mediaFileCount ?? 0} media files`, highlight: false },
-    { title: "Content Library", value: stats?.restContent?.toLocaleString() ?? "0", icon: Film, sub: "Movies", highlight: false },
+    { title: "Content Library", value: stats?.restContent?.toLocaleString() ?? "0", icon: Film, sub: `${stats?.totalMovies ?? 0} movies · ${stats?.totalTVShows ?? 0} series`, highlight: false },
     { title: "Subscription Revenue", value: formatStatRevenue(stats?.subscriptionRevenue), icon: DollarSign, sub: "Active plans revenue", highlight: false },
-    { title: "Total Views", value: (stats?.totalViews ?? 0).toLocaleString(), icon: Eye, sub: "Across all movies", highlight: true },
+    { title: "Total Views", value: (stats?.totalViews ?? 0).toLocaleString(), icon: Eye, sub: `${(stats?.movieViews ?? 0).toLocaleString()} movies · ${(stats?.seriesViews ?? 0).toLocaleString()} series`, highlight: true },
+    { title: "Total Likes", value: (stats?.totalLikes ?? 0).toLocaleString(), icon: Heart, sub: `${(stats?.movieLikes ?? 0).toLocaleString()} movies · ${(stats?.seriesLikes ?? 0).toLocaleString()} series`, highlight: true },
+    { title: "Watch Hours", value: (stats?.totalWatchHours ?? 0).toLocaleString(), icon: Clock, sub: "Total hours watched", highlight: true },
+    { title: "Web Series", value: (stats?.totalTVShows ?? 0).toLocaleString(), icon: Tv, sub: "Published and draft series", highlight: false },
     { title: "Ad Impressions", value: (stats?.adImpressions ?? 0).toLocaleString(), icon: Megaphone, sub: `${stats?.adClicks ?? 0} clicks · ${stats?.adCtr ?? "0.00"}% CTR`, highlight: true },
   ];
 
@@ -407,6 +410,7 @@ export default function Dashboard() {
                     <Tooltip contentStyle={{ backgroundColor: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "10px" }} labelStyle={{ color: chartColors.tooltipLabel }} />
                     <Legend wrapperStyle={{ color: chartColors.tooltipLabel, fontSize: 12 }} />
                     <Bar dataKey="movies" fill="#FF8C38" radius={[4, 4, 0, 0]} name="Movies" />
+                    <Bar dataKey="tvShows" fill="#B45309" radius={[4, 4, 0, 0]} name="Web Series" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

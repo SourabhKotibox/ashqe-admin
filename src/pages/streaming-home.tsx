@@ -1065,7 +1065,7 @@ function HomeTab({ onPlay, onSubscribeClick, isSubscribed, user, onSignIn }: {
   
   const cw = watchHistoryData?.items || [];
   const webSections = (sectionsData?.data || []).sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
-  const movies = allContentRes?.movies || [];
+  const movies = [...(allContentRes?.movies || []), ...(allContentRes?.tvShows || [])];
 
   if (isHomeLoading || isSectionsLoading || isAllContentLoading || !homeData) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-amber-400" /></div>;
 
@@ -2159,9 +2159,12 @@ export default function StreamingHomePage() {
   const isSubscribed = isUserSubscribed(user);
 
   const navigateToContent = useCallback((item: any) => {
-    const id = item.contentId || item.id || item._id;
-    if (item.type === 'show' || item.type === 'tvshow' || item.type === 'tvshows') {
-      setLocation(`/show/${id}`);
+    const id = item.tvShowId || item.contentId || item.id || item._id;
+    const type = String(item.type || item.contentType || "").toLowerCase();
+    const isShow = type === "show" || type === "tvshow" || type === "tvshows" || type === "series" || !!item.tvShowId;
+    if (isShow) {
+      const ep = item.episode || item.episodeNumber;
+      setLocation(ep ? `/watch/${id}/${ep}` : `/show/${id}`);
     } else {
       setLocation(`/movie/${id}`);
     }

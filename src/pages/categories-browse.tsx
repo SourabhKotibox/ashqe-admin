@@ -141,7 +141,12 @@ export default function CategoriesBrowsePage() {
 
   const handlePlay = (item: any) => {
     const id = item.id || item._id;
-    setLocation(`/movie/${id}`);
+    const type = String(item.type || item.contentType || "").toLowerCase();
+    if (type === "show" || type === "tvshow" || type === "series") {
+      setLocation(`/show/${id}`);
+    } else {
+      setLocation(`/movie/${id}`);
+    }
   };
 
   const handleSignOut = () => {

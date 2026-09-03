@@ -5,7 +5,7 @@ import {
   Crown, Tv, Lock, Plus, Share2, ChevronRight, Loader2,
   Check, Heart, Download, Smartphone
 } from "lucide-react";
-import { useGetAppSeriesDetail, getImageUrl, useGetWishlist, useToggleWishlist, useGetAppProfile, useRequestDownload } from "@/lib/api-client";
+import { useGetAppSeriesDetail, getImageUrl, useGetWishlist, useToggleWishlist, useGetAppProfile, useRequestDownload, useToggleLike, useRecordShare } from "@/lib/api-client";
 import { PublicHeader, PublicFooter } from "@/pages/streaming-home";
 import SubscriptionPlansModal from "@/components/SubscriptionPlansModal";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +35,14 @@ export default function TVShowDetailPage() {
       if (storedUser) setUser(JSON.parse(storedUser));
     } catch {}
     window.scrollTo({ top: 0, behavior: "smooth" });
+    const syncUser = () => {
+      try {
+        const storedUser = localStorage.getItem("appUser");
+        if (storedUser) setUser(JSON.parse(storedUser));
+      } catch {}
+    };
+    window.addEventListener("user-updated", syncUser);
+    return () => window.removeEventListener("user-updated", syncUser);
   }, [id]);
 
   const handleSignOut = () => {
@@ -44,19 +52,40 @@ export default function TVShowDetailPage() {
     window.location.reload();
   };
 
-  const isSubscribed = user?.subscriptionStatus === "active" && user?.subscriptionPlan !== "free";
+  const isSubscribed = !!user && (
+    user.subscription === true ||
+    (user.subscriptionStatus === "active" && user.subscriptionPlan && user.subscriptionPlan !== "free")
+  );
 
   const { data: detailData, isLoading } = useGetAppSeriesDetail(id || "");
   const show = (detailData as any)?.content || detailData || (detailData as any)?.data;
-  const apiEpisodes: any[] = (detailData as any)?.episodes || [];
+  const apiEpisodes: any[] = Array.isArray((detailData as any)?.episodes)
+    ? (detailData as any).episodes
+    : Array.isArray(show?.episodes)
+      ? show.episodes
+      : Array.isArray(show?.seasons)
+        ? show.seasons.flatMap((s: any) => s.episodes || [])
+        : Array.isArray((detailData as any)?.seasons)
+          ? (detailData as any).seasons.flatMap((s: any) => s.episodes || [])
+          : [];
 
   const uniqueSeasons = Array.from(new Set(apiEpisodes.map((e: any) => e.season || 1))).sort((a: any, b: any) => a - b) as number[];
   const seasonEpisodes = apiEpisodes.filter((e: any) => (e.season || 1) === selectedSeason);
 
+  useEffect(() => {
+    if (uniqueSeasons.length > 0 && !uniqueSeasons.includes(selectedSeason)) {
+      setSelectedSeason(uniqueSeasons[0]);
+    }
+  }, [uniqueSeasons, selectedSeason]);
+
   const { data: wishlistData } = useGetWishlist({ limit: 100 });
   const wishlistItems: any[] = (wishlistData as any)?.items || [];
-  const inWatchlist = wishlistItems.some((w: any) => w.id === id || w.tvShowId === id);
+  const inWatchlist = wishlistItems.some((w: any) => w.id === id || w.contentId === id || w.tvShowId === id);
   const toggleWishlistMutation = useToggleWishlist();
+  const toggleLikeMutation = useToggleLike();
+  const recordShareMutation = useRecordShare();
+  const { data: profileData } = useGetAppProfile();
+  const isLiked = profileData?.likeRecords?.some((l: any) => l.contentId === id) || false;
 
   const requestDownloadMutation = useRequestDownload();
   const [downloadingEp, setDownloadingEp] = useState<string | null>(null);
@@ -171,9 +200,9 @@ export default function TVShowDetailPage() {
             <button
               onClick={() => {
                 if (show?.trailerUrl) {
-                  setLocation(`/show/${id}/episode/0`);
+                  setLocation(`/watch/${id}/0`);
                 } else {
-                  setLocation(`/show/${id}/episode/1`);
+                  setLocation(`/watch/${id}/1`);
                 }
               }}
               className="flex items-center gap-2.5 px-8 py-3.5 bg-white hover:bg-zinc-200 text-black font-bold rounded-lg text-sm tracking-wide transition-all active:scale-95 shadow-xl"
@@ -194,6 +223,34 @@ export default function TVShowDetailPage() {
               className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-all hover:scale-105 active:scale-95 ${inWatchlist ? "bg-primary/20 border-primary/50 text-primary" : "bg-zinc-900/80 border-zinc-700/60 text-white hover:bg-zinc-800"}`}
             >
               {inWatchlist ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={() => {
+                if (!user) { toast({ title: "Please sign in to like", variant: "destructive" }); return; }
+                toggleLikeMutation.mutate({ contentId: id!, contentType: "show" }, {
+                  onSuccess: (data: any) => toast({ title: data?.data?.isLikedByUser ? "Liked!" : "Like removed" }),
+                  onError: () => toast({ title: "Failed to update like", variant: "destructive" }),
+                });
+              }}
+              className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-all hover:scale-105 active:scale-95 ${isLiked ? "bg-amber-500/20 border-amber-500/50 text-amber-400" : "bg-zinc-900/80 border-zinc-700/60 text-white hover:bg-zinc-800"}`}
+              title="Like"
+            >
+              <Heart className={`w-5 h-5 ${isLiked ? "fill-amber-400" : ""}`} />
+            </button>
+            <button
+              onClick={() => {
+                const shareUrl = show?.shareUrl || `${window.location.origin}/show/${id}`;
+                if (navigator.share) {
+                  navigator.share({ title, url: shareUrl }).catch(() => {});
+                } else {
+                  navigator.clipboard.writeText(shareUrl).then(() => toast({ title: "Link copied" }));
+                }
+                recordShareMutation.mutate({ contentId: id!, contentType: "show" });
+              }}
+              className="flex items-center justify-center w-11 h-11 rounded-lg border bg-zinc-900/80 border-zinc-700/60 text-white hover:bg-zinc-800 transition-all hover:scale-105 active:scale-95"
+              title="Share"
+            >
+              <Share2 className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -239,7 +296,7 @@ export default function TVShowDetailPage() {
                         setPlansModalOpen(true);
                         return;
                       }
-                      setLocation(`/show/${id}/episode/${epNum}`);
+                      setLocation(`/watch/${id}/${epNum}`);
                     }}
                     className="group flex gap-4 p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900/70 transition-all cursor-pointer"
                   >
@@ -355,7 +412,12 @@ export default function TVShowDetailPage() {
 
       <PublicFooter />
 
-      <SubscriptionPlansModal isOpen={plansModalOpen} onClose={() => setPlansModalOpen(false)} />
+      <SubscriptionPlansModal isOpen={plansModalOpen} onClose={() => setPlansModalOpen(false)} onSubscribed={() => {
+        try {
+          const storedUser = localStorage.getItem("appUser");
+          if (storedUser) setUser(JSON.parse(storedUser));
+        } catch {}
+      }} />
     </div>
   );
 }

@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   useGetTVShows, useGetSeasonList,
   useGetEpisodeById, useCreateEpisode, useUpdateEpisode,
-  useGetLanguagesList, getImageUrl
+  useGetLanguagesList, getImageUrl, getMediaFileById
 } from "@/lib/api-client";
 import MediaPicker from "@/components/MediaPicker";
 
@@ -76,6 +76,7 @@ export default function EpisodeForm() {
   const [currentQualityRowId, setCurrentQualityRowId] = useState<string | null>(null);
   const [subtitlePickerOpen, setSubtitlePickerOpen] = useState(false);
   const [currentSubtitleRowId, setCurrentSubtitleRowId] = useState<string | null>(null);
+  const [processingMediaId, setProcessingMediaId] = useState<string | null>(null);
 
   // Episode Details
   const [thumbnailUrl, setThumbnailUrl] = useState("");
@@ -208,7 +209,55 @@ export default function EpisodeForm() {
         }
       }
     }
+    const mediaId = media.id || media._id || media.mediaFileId;
+    if (mediaId && (media.hlsStatus === "processing" || media.hlsStatus === "pending" || !media.isHls)) {
+      setProcessingMediaId(String(mediaId));
+    }
   };
+
+  useEffect(() => {
+    if (!processingMediaId) return;
+    let cancelled = false;
+    let tries = 0;
+    const tick = async () => {
+      try {
+        const res = await getMediaFileById(processingMediaId);
+        const media = (res as any)?.data;
+        if (!media || cancelled) return;
+        if (media.isHls && media.hlsMasterPlaylistUrl) {
+          setVideoUploadType("hls");
+          setVideoUrl(media.hlsMasterPlaylistUrl);
+          if (Array.isArray(media.hlsQualities) && media.hlsQualities.length > 0) {
+            setQualityEnabled(true);
+            setQualityRows(
+              media.hlsQualities.map((q: any, i: number) => {
+                const isUrl = q.url && (q.url.startsWith("http://") || q.url.startsWith("https://"));
+                return {
+                  id: String(i + 1),
+                  type: isUrl ? "url" : "local",
+                  quality: q.quality || "480p",
+                  filePath: isUrl ? "" : (q.filePath || ""),
+                  url: isUrl ? q.url : "",
+                };
+              })
+            );
+          }
+          toast({ title: "HLS ready", description: "Episode video qualities were auto-filled." });
+          setProcessingMediaId(null);
+          return;
+        }
+        if (media.hlsStatus === "failed") {
+          toast({ title: "HLS processing failed", description: "Original file can still be saved.", variant: "destructive" });
+          setProcessingMediaId(null);
+          return;
+        }
+      } catch { /* ignore */ }
+      tries += 1;
+      if (!cancelled && tries < 60) setTimeout(tick, 5000);
+    };
+    tick();
+    return () => { cancelled = true; };
+  }, [processingMediaId]);
 
   useEffect(() => {
     if (isEdit && existingEpisode) {
@@ -304,8 +353,8 @@ export default function EpisodeForm() {
       title: name,
       description: description || undefined,
       thumbnail: thumbnailUrl || undefined,
-      sourceVideoUrl: videoUploadType === "url" ? videoUrl : undefined,
-      hlsUrl: videoUploadType === "local" ? videoFilePath : (videoUploadType === "hls" ? videoUrl : undefined),
+      sourceVideoUrl: videoUploadType === "url" ? videoUrl : (videoUploadType === "local" ? videoFilePath : undefined),
+      hlsUrl: videoUploadType === "local" ? videoFilePath : (videoUploadType === "hls" ? (videoUrl || videoFilePath) : (videoUrl || undefined)),
       trailerUrl: trailerUrl || undefined,
       isFree,
       isLocked: !isFree && isLocked,
