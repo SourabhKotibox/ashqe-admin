@@ -209,8 +209,9 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {plans.map((plan: any) => {
-                const isPremium = plan.name === "premium";
-                const isStandard = plan.name === "standard";
+                const pName = String(plan.name || "").toLowerCase();
+                const isPremium = pName.includes("premium") || pName.includes("vip");
+                const isStandard = pName.includes("standard") || (!isPremium && pName.includes("basic"));
                 const isPopular = plan.isPopular || isStandard;
 
                 return (

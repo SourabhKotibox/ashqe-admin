@@ -14,6 +14,7 @@ import { PlayerPrerollAd } from "@/components/AdComponents";
 import { useToast } from "@/hooks/use-toast";
 import { LandscapeCard } from "@/components/ContentCard";
 import { useMiniPlayer } from "@/contexts/MiniPlayerContext";
+import SubscriptionPlansModal from "@/components/SubscriptionPlansModal";
 /* ─── AD OVERLAY ─── */
 function AdOverlay({ ad, onSkip }: { ad: any; onSkip: () => void }) {
   const [countdown, setCountdown] = useState(5);
@@ -1589,135 +1590,6 @@ function VideoPlayer({
 }
 
 /* ─────────────────────────────────────────────────────────────
-   LOCK / PAYWALL POPUP
-   ───────────────────────────────────────────────────────────── */
-
-function LockPopup({ onClose, onSubscribed }: { onClose: () => void; onSubscribed: () => void }) {
-  const { toast } = useToast();
-  const { data: plansData, isLoading: loadingPlans } = useGetWebSubscriptionPlans();
-  const createSubMutation = useCreateSubscription();
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem("appUser");
-      if (storedUser) setUser(JSON.parse(storedUser));
-    } catch (e) {}
-  }, []);
-
-  const plans = plansData?.data || [];
-
-  const handleSubscribe = async (plan: any) => {
-    if (!user) {
-      toast({ title: "Authentication Required", description: "Please login first to subscribe.", variant: "destructive" });
-      window.location.href = "/login";
-      return;
-    }
-    try {
-      await createSubMutation.mutateAsync({
-        userId: user.id || user._id,
-        planId: plan.id || plan._id,
-        startDate: new Date(),
-        price: plan.price || plan.totalPrice,
-        totalAmount: plan.totalPrice || plan.price,
-        paymentMethod: 'Credit Card',
-        status: 'active'
-      });
-
-      const updatedUser = {
-        ...user,
-        subscriptionPlan: plan.name,
-        subscriptionStatus: 'active'
-      };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      toast({ title: "Subscription Successful", description: `Successfully subscribed to ${plan.name}! Content unlocked.` });
-      onSubscribed();
-      onClose();
-    } catch (err: any) {
-      toast({ title: "Subscription Failed", description: err?.message || "An error occurred.", variant: "destructive" });
-    }
-  };
-
-  /* prevent body scroll while open */
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Modal */}
-      <div
-        className="relative z-10 bg-[#111111] w-full sm:max-w-[500px] sm:mx-4 rounded-t-2xl sm:rounded-2xl overflow-hidden border border-zinc-800 animate-in slide-in-from-bottom duration-300"
-        style={{ maxHeight: "90vh", overflowY: "auto" } as React.CSSProperties}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800 sticky top-0 bg-[#111111] z-10">
-          <span className="text-foreground font-extrabold text-sm flex items-center gap-1.5">
-            <Crown className="w-4 h-4 text-amber-500 fill-amber-500" /> Choose Subscription Plan
-          </span>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-foreground/80 hover:text-foreground transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          <p className="text-foreground/80 text-xs text-center leading-relaxed">
-            This content is locked. Subscribe to one of our premium plans to unlock the entire library!
-          </p>
-
-          {loadingPlans ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {plans.map((plan: any) => {
-                if (plan.name === "free") return null;
-                return (
-                  <div
-                    key={plan.id}
-                    className="p-4 rounded-xl border border-zinc-800/80 bg-zinc-900/40 hover:border-amber-500/50 hover:bg-zinc-900/80 transition-all flex flex-col justify-between"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="text-amber-400 font-bold text-sm uppercase tracking-wide">{plan.name}</h4>
-                        <p className="text-foreground text-[11px] mt-0.5">{plan.description}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-foreground font-black text-lg">₹{plan.totalPrice || plan.price}</span>
-                        <span className="text-foreground/80 text-[10px] block">/ {plan.duration || 'month'}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-800 text-[11px] text-foreground/80">
-                      <span>Valid: <strong className="text-foreground">{plan.durationValue} {plan.duration}</strong></span>
-                      {plan.discount > 0 && <span className="text-amber-400 font-bold">{plan.discount}% off</span>}
-                      <button
-                        onClick={() => handleSubscribe(plan)}
-                        disabled={createSubMutation.isPending}
-                        className="px-4 py-1.5 bg-primary hover:bg-primary/90 disabled:bg-zinc-800 text-white font-bold rounded-lg transition-colors text-xs"
-                      >
-                        {createSubMutation.isPending ? "Connecting..." : "Subscribe"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
    MAIN PAGE
    ───────────────────────────────────────────────────────────── */
 export default function WatchPage() {
@@ -1862,12 +1734,7 @@ export default function WatchPage() {
   };
 
   const handleSubscribed = useCallback(() => {
-    try {
-      const appUserStr = localStorage.getItem("appUser");
-      const userStr = localStorage.getItem("user");
-      const parsedUser = appUserStr ? JSON.parse(appUserStr) : (userStr ? JSON.parse(userStr) : null);
-      if (parsedUser) setUser(parsedUser);
-    } catch (e) {}
+    window.location.reload();
   }, []);
 
   // Keep mini-player meta fresh for leave handoff
@@ -1936,7 +1803,7 @@ export default function WatchPage() {
     }
 
     requestDownloadMutation.mutate(
-      { contentId, contentType: publicContentType },
+      { contentId, contentType: publicContentType === "show" ? "series" : "movie" },
       {
         onSuccess: async (data: any) => {
           const dlUrl = data?.data?.downloadUrl || data?.downloadUrl;
@@ -1968,12 +1835,12 @@ export default function WatchPage() {
   }, [user, navigate, downloadItems, contentId, isOfflineHere, removeDownloadMutation, requestDownloadMutation, toast, showData?.trailerUrl]);
 
   const getPlanLevel = (plan?: string) => {
-    switch (plan?.toLowerCase()) {
-      case "premium": return 3;
-      case "standard": return 2;
-      case "basic": return 1;
-      default: return 0;
-    }
+    const p = String(plan || "free").toLowerCase();
+    if (p.includes("premium") || p.includes("vip")) return 3;
+    if (p.includes("standard")) return 2;
+    if (p.includes("basic")) return 1;
+    if (p !== "free") return 2; // Named paid plans default to standard
+    return 0;
   };
 
   // useGetAppProfile returns { user, likeRecords, ... } — subscription lives on user
@@ -2459,7 +2326,8 @@ export default function WatchPage() {
       <PublicFooter />
 
       {lockPopupOpen && (
-        <LockPopup
+        <SubscriptionPlansModal
+          isOpen={lockPopupOpen}
           onClose={() => setLockPopupOpen(false)}
           onSubscribed={handleSubscribed}
         />

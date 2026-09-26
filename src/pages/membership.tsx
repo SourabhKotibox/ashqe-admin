@@ -58,9 +58,9 @@ function getPlanFeatures(plan: any): { text: string; icon: any }[] {
 
 function getPlanStyle(name: string) {
   const n = (name || "").toLowerCase();
-  if (n === "premium") return { accent: "text-amber-400", check: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30", glow: "from-amber-500/15", badge: "bg-amber-500/20 text-amber-300 border border-amber-500/30" };
-  if (n === "standard") return { accent: "text-primary", check: "text-primary", bg: "bg-primary/10", border: "border-primary/30", glow: "from-primary/15", badge: "bg-primary text-white" };
-  if (n === "basic") return { accent: "text-amber-300", check: "text-amber-300", bg: "bg-amber-400/10", border: "border-amber-400/30", glow: "from-amber-500/15", badge: "bg-amber-400/20 text-amber-200 border border-amber-400/30" };
+  if (n.includes("premium") || n.includes("vip")) return { accent: "text-amber-400", check: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30", glow: "from-amber-500/15", badge: "bg-amber-500/20 text-amber-300 border border-amber-500/30" };
+  if (n.includes("standard")) return { accent: "text-primary", check: "text-primary", bg: "bg-primary/10", border: "border-primary/30", glow: "from-primary/15", badge: "bg-primary text-white" };
+  if (n.includes("basic")) return { accent: "text-amber-300", check: "text-amber-300", bg: "bg-amber-400/10", border: "border-amber-400/30", glow: "from-amber-500/15", badge: "bg-amber-400/20 text-amber-200 border border-amber-400/30" };
   return { accent: "text-white/80", check: "text-white/60", bg: "bg-white/5", border: "border-white/10", glow: "from-white/3", badge: "bg-white/5 text-white/70 border border-white/10" };
 }
 

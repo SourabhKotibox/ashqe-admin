@@ -143,11 +143,11 @@ export default function UsersList() {
                   <TableCell>
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        user.subscriptionPlan === "premium"
+                        String(user.subscriptionPlan || "").toLowerCase().includes("premium") || String(user.subscriptionPlan || "").toLowerCase().includes("vip")
                           ? "bg-primary/15 text-primary"
-                          : user.subscriptionPlan === "standard"
+                          : String(user.subscriptionPlan || "").toLowerCase().includes("standard")
                           ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                          : user.subscriptionPlan === "basic"
+                          : String(user.subscriptionPlan || "").toLowerCase().includes("basic")
                           ? "bg-muted text-muted-foreground/80 dark:text-muted-foreground"
                           : "bg-muted text-muted-foreground/80 dark:text-foreground/70"
                       }`}

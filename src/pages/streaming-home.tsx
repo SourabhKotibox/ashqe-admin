@@ -1278,14 +1278,14 @@ function UserDropdown({ onSignIn, onSignOut, user }: { onSignIn: () => void; onS
 }
 
 /* ─── SIGN IN MODAL ─── */
-function SignInModal({ onClose }: { onClose: () => void }) {
+export function SignInModal({ onClose }: { onClose: () => void }) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [usePhone, setUsePhone] = useState(false);
+  const [usePhone, setUsePhone] = useState(true);
   const [otp, setOtp] = useState("");
   const [verificationId, setVerificationId] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -1463,19 +1463,6 @@ function SignInModal({ onClose }: { onClose: () => void }) {
           </p>
 
           {error && <div className="mb-4 p-3.5 bg-amber-400/10 border border-amber-400/20 rounded-xl text-amber-400 text-xs font-semibold leading-snug">{error}</div>}
-
-          <div className="flex gap-1 mb-3 bg-zinc-900/60 rounded-xl p-1">
-            <button
-              type="button"
-              onClick={() => setUsePhone(false)}
-              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${!usePhone ? "bg-amber-400 text-black" : "text-white hover:text-white"}`}
-            >Email</button>
-            <button
-              type="button"
-              onClick={() => setUsePhone(true)}
-              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${usePhone ? "bg-amber-400 text-black" : "text-white hover:text-white"}`}
-            >Phone OTP</button>
-          </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
             {!isLogin && (
