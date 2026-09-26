@@ -29,6 +29,7 @@ import {
   useDeleteSection,
   useReorderSections,
   useGetMovies,
+  useGetTVShows,
   useGetHomeTabsConfig,
   useUpdateHomeTabsConfig,
 } from '@/lib/api-client';
@@ -145,7 +146,7 @@ const SortableSection = ({ section, onToggle, onEdit, onDelete }: SortableSectio
 
 export default function HomeSections() {
   const { toast } = useToast();
-  const activeTab = 'movie' as const;
+  const [activeTab, setActiveTab] = useState('movie');
   
   const { data: sectionsData, isLoading } = useGetSections({ contentType: activeTab });
   const createMutation = useCreateSection();
@@ -154,6 +155,7 @@ export default function HomeSections() {
   const reorderMutation = useReorderSections();
 
   const { data: moviesRes } = useGetMovies({ limit: 500 });
+  const { data: tvShowsRes } = useGetTVShows({ limit: 500 });
 
   const { data: tabsConfigRes } = useGetHomeTabsConfig();
   const updateTabsMutation = useUpdateHomeTabsConfig();
@@ -164,7 +166,8 @@ export default function HomeSections() {
   const [tabNameInput, setTabNameInput] = useState('');
 
   const tabsConfig = tabsConfigRes?.data || [
-    { id: 'movie', name: 'Movies' }
+    { id: 'movie', name: 'Movies' },
+    { id: 'webseries', name: 'Web Series' }
   ];
   const activeTabName = tabsConfig.find((t: any) => t.id === activeTab)?.name || 'Movies';
 
@@ -378,12 +381,19 @@ export default function HomeSections() {
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-muted/80 dark:bg-zinc-900/50 p-2 rounded-xl border border-border dark:border-white/5">
         <div className="flex gap-2 p-1 bg-background dark:bg-zinc-950 rounded-lg shadow-sm">
-          <button
-            onClick={() => { setIsEditingTabName(false); }}
-            className="flex items-center gap-2 px-5 py-2 rounded-md text-sm font-bold transition-all bg-primary text-primary-foreground dark:text-white shadow-sm"
-          >
-            <Film className="w-4 h-4" /> {tabsConfig.find((t: any) => t.id === 'movie')?.name || 'Movies'}
-          </button>
+          {tabsConfig.map((tab: any) => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setIsEditingTabName(false); }}
+              className={`flex items-center gap-2 px-5 py-2 rounded-md text-sm font-bold transition-all ${
+                activeTab === tab.id 
+                  ? 'bg-primary text-primary-foreground dark:text-white shadow-sm' 
+                  : 'hover:bg-muted text-muted-foreground'
+              }`}
+            >
+              <Film className="w-4 h-4" /> {tab.name}
+            </button>
+          ))}
         </div>
         
         <div className="flex items-center gap-2 px-2">
@@ -593,10 +603,9 @@ export default function HomeSections() {
                       <SelectValue placeholder="Click to add a title..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {((moviesRes?.data || [])
-                      ).map((item: any) => (
+                      {[...(moviesRes?.data || []).map((m: any) => ({ ...m, _type: 'Movie' })), ...(tvShowsRes?.data || []).map((s: any) => ({ ...s, _type: 'Web Series' }))].map((item: any) => (
                         <SelectItem key={item._id} value={item._id}>
-                          {item.title}
+                          {item.title} <span className="text-[10px] text-muted-foreground ml-2 uppercase">({item._type})</span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -605,11 +614,14 @@ export default function HomeSections() {
                   {selectedItems.length > 0 && (
                     <div className="flex flex-col gap-2 mt-3 bg-muted/30 dark:bg-black/20 border border-border dark:border-white/5 p-2 rounded-md max-h-48 overflow-y-auto">
                       {selectedItems.map(id => {
-                        const allItems = moviesRes?.data || [];
+                        const allItems = [...(moviesRes?.data || []).map((m: any) => ({ ...m, _type: 'Movie' })), ...(tvShowsRes?.data || []).map((s: any) => ({ ...s, _type: 'Web Series' }))];
                         const matchedItem = allItems?.find((i: any) => i._id === id);
                         return (
                           <div key={id} className="flex items-center justify-between bg-muted/50 px-3 py-2 rounded-md text-sm border border-border/50">
-                            <span className="truncate pr-4">{matchedItem ? matchedItem.title : 'Unknown Title'}</span>
+                            <span className="truncate pr-4">
+                              {matchedItem ? matchedItem.title : 'Unknown Title'}
+                              {matchedItem && <span className="text-[10px] text-muted-foreground ml-2 uppercase">({matchedItem._type})</span>}
+                            </span>
                             <Button 
                               variant="ghost" 
                               size="icon" 

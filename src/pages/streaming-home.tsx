@@ -1017,6 +1017,14 @@ function getSectionItems(section: any, movies: any[], homeData: any) {
           filteredItems = filteredItems.filter(i => i.genres?.includes(fVal));
        } else if (fKey === 'isNewContent' || fKey === 'trending' || fKey === 'featured') {
           filteredItems = filteredItems.filter(i => i[fKey] === (fVal === 'true' || fVal === true));
+       } else if (fKey === 'mediaType') {
+          filteredItems = filteredItems.filter(i => {
+             const mType = i.type || i.contentType;
+             if (fVal === 'series' || fVal === 'tvshow' || fVal === 'show') {
+                 return mType === 'show' || mType === 'tvShow';
+             }
+             return mType === 'movie';
+          });
        } else {
           filteredItems = filteredItems.filter(i => i[fKey] === fVal);
        }
