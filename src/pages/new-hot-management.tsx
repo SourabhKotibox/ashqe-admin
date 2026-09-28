@@ -5,11 +5,11 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useGetMovies, useUpdateMovie, getImageUrl,
+  useGetMovies, useUpdateMovie, getImageUrl, useGetTVShows, useUpdateTVShow,
 } from "@/lib/api-client";
 
 const PAGE_SIZE = 20;
-type Tab = "movies";
+type Tab = "movies" | "webseries";
 type FlagKey = "isNewContent" | "trending" | "featured";
 
 const FLAGS: { key: FlagKey; label: string; icon: typeof Sparkles }[] = [
@@ -37,12 +37,15 @@ export default function NewHotManagement() {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
   const updateMovie = useUpdateMovie();
+  const updateTVShow = useUpdateTVShow();
 
   const moviesQuery = useGetMovies({ page, limit: PAGE_SIZE, search: search || undefined });
+  const tvShowsQuery = useGetTVShows({ page, limit: PAGE_SIZE, search: search || undefined });
 
-  const rawData = moviesQuery.data;
+  const currentQuery = activeTab === "movies" ? moviesQuery : tvShowsQuery;
+  const rawData = currentQuery.data;
 
-  const isLoading = moviesQuery.isLoading;
+  const isLoading = currentQuery.isLoading;
 
   const items: any[] =
     Array.isArray(rawData?.data?.items) ? rawData.data.items  :
@@ -78,7 +81,11 @@ export default function NewHotManagement() {
     setSaving((prev) => ({ ...prev, [k]: true }));
 
     try {
-      await updateMovie.mutateAsync({ id, data: { [field]: newValue } });
+      if (activeTab === "movies") {
+        await updateMovie.mutateAsync({ id, data: { [field]: newValue } });
+      } else {
+        await updateTVShow.mutateAsync({ id, data: { [field]: newValue } });
+      }
       const label = FLAGS.find((f) => f.key === field)?.label ?? field;
       toast({
         title: newValue ? `Added to ${label}` : `Removed from ${label}`,
@@ -103,6 +110,7 @@ export default function NewHotManagement() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "movies",   label: "Movies" },
+    { id: "webseries", label: "Web Series" },
   ];
 
   return (
