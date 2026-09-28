@@ -196,13 +196,19 @@ function VideoPlayer({
     });
   }, [currentTime, duration, contentId, episodeId, playing]);
 
+  const latestTimeRef = useRef(0);
+  const latestDurationRef = useRef(0);
+  useEffect(() => {
+    latestTimeRef.current = currentTime;
+    latestDurationRef.current = duration;
+  }, [currentTime, duration]);
+
   // Flush progress once on unmount
   useEffect(() => {
     return () => {
-      const v = videoRef.current;
-      if (!contentId || !v || !localStorage.getItem("appAccessToken")) return;
-      const t = v.currentTime || 0;
-      const d = v.duration || 0;
+      if (!contentId || !localStorage.getItem("appAccessToken")) return;
+      const t = latestTimeRef.current;
+      const d = latestDurationRef.current;
       if (d > 20 && t > 2 && Math.abs(t - lastSavedTimeRef.current) > 1) {
         saveProgressMutation.mutate({
           contentId,
@@ -212,7 +218,7 @@ function VideoPlayer({
         });
       }
     };
-  }, [contentId]);
+  }, [contentId, episodeId]);
 
   const settingsOpenRef = useRef(settingsOpen);
   settingsOpenRef.current = settingsOpen;
