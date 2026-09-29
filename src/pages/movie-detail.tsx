@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
+import { useDeepLinkRedirect } from "@/hooks/useDeepLinkRedirect";
 import {
   Play, Plus, Share2, Heart, Star, Film,
   ChevronLeft, Crown,
@@ -20,6 +21,8 @@ export default function MovieDetailPage() {
   const [, setLocation] = useLocation();
   const id = (params as any)?.id;
   const { toast } = useToast();
+
+  useDeepLinkRedirect(id, "movie");
 
   const recordShareMutation = useRecordShare();
 
