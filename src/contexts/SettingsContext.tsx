@@ -303,10 +303,10 @@ const DEFAULT: AppSettings = {
   mcAuthTokenSet: false,
   mcPasswordSet: false,
 
-  appUpdateAndroidVersion: "",
+  appUpdateAndroidVersion: "1.9.5+63",
   appUpdateAndroidUrl: "",
   appUpdateAndroidForce: false,
-  appUpdateIosVersion: "",
+  appUpdateIosVersion: "1.9.5+63",
   appUpdateIosUrl: "",
   appUpdateIosForce: false,
 };

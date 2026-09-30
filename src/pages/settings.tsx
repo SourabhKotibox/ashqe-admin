@@ -1970,7 +1970,7 @@ export default function Settings() {
             <Input
               value={appUpdate.appUpdateAndroidVersion}
               onChange={(e) => setAppUpdate({ ...appUpdate, appUpdateAndroidVersion: e.target.value })}
-              placeholder="1.0.5"
+              placeholder="1.9.5+63"
               className={inputCls}
             />
           </div>
@@ -2004,7 +2004,7 @@ export default function Settings() {
             <Input
               value={appUpdate.appUpdateIosVersion}
               onChange={(e) => setAppUpdate({ ...appUpdate, appUpdateIosVersion: e.target.value })}
-              placeholder="1.0.5"
+              placeholder="1.9.5+63"
               className={inputCls}
             />
           </div>

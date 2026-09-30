@@ -428,7 +428,9 @@ function Router() {
       <Route path="/browse" component={CategoriesBrowsePage} />
       <Route path="/tv-shows-browse" component={TvShowsPublicPage} />
       <Route path="/show/:id/episode/:epNum" component={ShowEpisodeRedirect} />
+      <Route path="/webseries/:id/episode/:epNum" component={ShowEpisodeRedirect} />
       <Route path="/show/:id" component={TVShowDetailPage} />
+      <Route path="/webseries/:id" component={TVShowDetailPage} />
       <Route path="/account" component={UserProfilePage} />
       <Route path="/wishlist" component={WishlistPage} />
       <Route path="/help-support" component={HelpSupportPage} />
