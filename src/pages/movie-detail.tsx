@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useDeepLinkRedirect } from "@/hooks/useDeepLinkRedirect";
+import { DeepLinkOverlay } from "@/components/DeepLinkOverlay";
 import {
   Play, Plus, Share2, Heart, Star, Film,
   ChevronLeft, Crown,
@@ -22,7 +22,7 @@ export default function MovieDetailPage() {
   const id = (params as any)?.id;
   const { toast } = useToast();
 
-  useDeepLinkRedirect(id, "movie");
+  
 
   const recordShareMutation = useRecordShare();
 
@@ -163,6 +163,7 @@ export default function MovieDetailPage() {
 
   return (
     <div className="min-h-screen text-foreground" style={{ background: "#0c0c14" }}>
+      <DeepLinkOverlay contentId={id} contentType="movie" />
       <PublicHeader
         activeTab="movies"
         setActiveTab={(tab) => {

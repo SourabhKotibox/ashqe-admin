@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useDeepLinkRedirect } from "@/hooks/useDeepLinkRedirect";
+import { DeepLinkOverlay } from "@/components/DeepLinkOverlay";
 import {
   ChevronLeft, Play, Star, Calendar, Globe, Clock, Film,
   Crown, Tv, Lock, Plus, Share2, ChevronRight, Loader2,
@@ -25,7 +25,7 @@ export default function TVShowDetailPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  useDeepLinkRedirect(id, "webseries");
+  
 
   const [activeTab, setActiveTab] = useState<Tab>("tvshows");
   const [user, setUser] = useState<any>(null);
