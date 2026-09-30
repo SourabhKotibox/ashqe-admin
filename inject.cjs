@@ -1,26 +1,8 @@
-<!DOCTYPE html>
-<html lang="en" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>Ashqe</title>
-    <meta name="description" content="Ashqe — stream premium movies and series." />
-    <meta name="robots" content="index, follow" />
-    <meta property="og:title" content="Ashqe" />
-    <meta property="og:description" content="Ashqe — stream premium movies and series." />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Ashqe" />
-    <meta name="twitter:description" content="Ashqe — stream premium movies and series." />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-      // Force dark mode globally per user request
-      document.documentElement.classList.add('dark');
-    </script>
-  
+const fs = require('fs');
+const path = 'ashqe-admin/index.html';
+let html = fs.readFileSync(path, 'utf8');
+
+const script = `
     <!-- SMART APP BANNER / REDIRECT -->
     <script>
       (function() {
@@ -47,9 +29,10 @@
         } catch(e) {}
       })();
     </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+`;
+
+if (!html.includes('SMART APP BANNER')) {
+  html = html.replace('</head>', script + '  </head>');
+  fs.writeFileSync(path, html);
+  console.log("Injected script");
+}
