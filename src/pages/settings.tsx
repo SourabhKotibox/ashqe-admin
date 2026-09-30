@@ -60,6 +60,7 @@ const SECTIONS = [
   { id: "subscription", label: "Subscription Settings", icon: Crown },
   { id: "storage", label: "Storage Settings", icon: HardDrive },
   { id: "seo", label: "SEO Settings", icon: Search },
+  { id: "appUpdate", label: "App Updates", icon: Smartphone },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -160,6 +161,7 @@ export default function Settings() {
       case "subscription": return handleSaveSubscription();
       case "storage": return handleSaveStorage();
       case "seo": return handleSaveSeo();
+      case "appUpdate": return handleSaveAppUpdate();
     }
   };
 
@@ -1915,6 +1917,121 @@ export default function Settings() {
     </div>
   );
 
+  
+  // ── App Updates ──────────────────────────────────────────────────
+  const [appUpdate, setAppUpdate] = useState({
+    appUpdateAndroidVersion: ctxSettings.appUpdateAndroidVersion,
+    appUpdateAndroidUrl: ctxSettings.appUpdateAndroidUrl,
+    appUpdateAndroidForce: ctxSettings.appUpdateAndroidForce,
+    appUpdateIosVersion: ctxSettings.appUpdateIosVersion,
+    appUpdateIosUrl: ctxSettings.appUpdateIosUrl,
+    appUpdateIosForce: ctxSettings.appUpdateIosForce,
+  });
+
+  useEffect(() => {
+    setAppUpdate({
+      appUpdateAndroidVersion: ctxSettings.appUpdateAndroidVersion,
+      appUpdateAndroidUrl: ctxSettings.appUpdateAndroidUrl,
+      appUpdateAndroidForce: ctxSettings.appUpdateAndroidForce,
+      appUpdateIosVersion: ctxSettings.appUpdateIosVersion,
+      appUpdateIosUrl: ctxSettings.appUpdateIosUrl,
+      appUpdateIosForce: ctxSettings.appUpdateIosForce,
+    });
+  }, [
+    ctxSettings.appUpdateAndroidVersion,
+    ctxSettings.appUpdateAndroidUrl,
+    ctxSettings.appUpdateAndroidForce,
+    ctxSettings.appUpdateIosVersion,
+    ctxSettings.appUpdateIosUrl,
+    ctxSettings.appUpdateIosForce,
+  ]);
+
+  const handleSaveAppUpdate = async () => {
+    setSaving(true);
+    try {
+      await updateSettingsMutation.mutateAsync(appUpdate);
+      updateCtx(appUpdate);
+      toast({ title: "App Update settings saved successfully" });
+    } catch {
+      toast({ title: "Failed to save app update settings", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
+  const renderAppUpdate = () => (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <div className="space-y-4">
+        <SectionTitle icon={Smartphone} label="Android App Update" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label className={labelCls}>Latest Version (Android)</Label>
+            <Input
+              value={appUpdate.appUpdateAndroidVersion}
+              onChange={(e) => setAppUpdate({ ...appUpdate, appUpdateAndroidVersion: e.target.value })}
+              placeholder="1.0.5"
+              className={inputCls}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className={labelCls}>Play Store / Update URL</Label>
+            <Input
+              value={appUpdate.appUpdateAndroidUrl}
+              onChange={(e) => setAppUpdate({ ...appUpdate, appUpdateAndroidUrl: e.target.value })}
+              placeholder="https://play.google.com/store/apps/details?id=com.ashqe.tophills"
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-4 bg-muted/30 border border-border rounded-xl">
+          <div className="space-y-1">
+            <Label className="text-foreground font-medium">Force Update (Android)</Label>
+            <p className="text-xs text-muted-foreground">If enabled, users must update to continue using the app.</p>
+          </div>
+          <Switch
+            checked={appUpdate.appUpdateAndroidForce}
+            onCheckedChange={(c) => setAppUpdate({ ...appUpdate, appUpdateAndroidForce: c })}
+          />
+        </div>
+      </div>
+      
+      <div className="space-y-4">
+        <SectionTitle icon={Smartphone} label="iOS App Update" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label className={labelCls}>Latest Version (iOS)</Label>
+            <Input
+              value={appUpdate.appUpdateIosVersion}
+              onChange={(e) => setAppUpdate({ ...appUpdate, appUpdateIosVersion: e.target.value })}
+              placeholder="1.0.5"
+              className={inputCls}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className={labelCls}>App Store / Update URL</Label>
+            <Input
+              value={appUpdate.appUpdateIosUrl}
+              onChange={(e) => setAppUpdate({ ...appUpdate, appUpdateIosUrl: e.target.value })}
+              placeholder="https://apps.apple.com/app/id123456789"
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-4 bg-muted/30 border border-border rounded-xl">
+          <div className="space-y-1">
+            <Label className="text-foreground font-medium">Force Update (iOS)</Label>
+            <p className="text-xs text-muted-foreground">If enabled, users must update to continue using the app.</p>
+          </div>
+          <Switch
+            checked={appUpdate.appUpdateIosForce}
+            onCheckedChange={(c) => setAppUpdate({ ...appUpdate, appUpdateIosForce: c })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   const renderSection = () => {
     switch (activeSection) {
       case "business": return renderBusiness();
@@ -1927,6 +2044,7 @@ export default function Settings() {
       case "subscription": return renderSubscription();
       case "storage": return renderStorage();
       case "seo": return renderSeo();
+      case "appUpdate": return renderAppUpdate();
     }
   };
 

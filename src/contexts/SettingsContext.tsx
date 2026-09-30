@@ -148,6 +148,14 @@ export interface AppSettings {
   mcFlowType: string;
   mcAuthTokenSet: boolean;
   mcPasswordSet: boolean;
+  
+  // App Update Fields
+  appUpdateAndroidVersion: string;
+  appUpdateAndroidUrl: string;
+  appUpdateAndroidForce: boolean;
+  appUpdateIosVersion: string;
+  appUpdateIosUrl: string;
+  appUpdateIosForce: boolean;
 }
 
 const DEFAULT: AppSettings = {
@@ -294,6 +302,13 @@ const DEFAULT: AppSettings = {
   mcFlowType: "SMS",
   mcAuthTokenSet: false,
   mcPasswordSet: false,
+
+  appUpdateAndroidVersion: "",
+  appUpdateAndroidUrl: "",
+  appUpdateAndroidForce: false,
+  appUpdateIosVersion: "",
+  appUpdateIosUrl: "",
+  appUpdateIosForce: false,
 };
 
 const STORAGE_KEY = "ashqeSettings";
@@ -477,6 +492,13 @@ function mapApiData(api: any): AppSettings {
     mcFlowType: api.messageCentralFlowType || api.mcFlowType || DEFAULT.mcFlowType,
     mcAuthTokenSet: !!(api.messageCentralAuthTokenSet || api.mcAuthTokenSet || api.messageCentralAuthToken || api.mcAuthToken),
     mcPasswordSet: !!(api.messageCentralPasswordSet || api.mcPasswordSet || api.messageCentralPassword || api.mcPassword),
+
+    appUpdateAndroidVersion: api.appUpdateAndroidVersion || "",
+    appUpdateAndroidUrl: api.appUpdateAndroidUrl || "",
+    appUpdateAndroidForce: api.appUpdateAndroidForce || false,
+    appUpdateIosVersion: api.appUpdateIosVersion || "",
+    appUpdateIosUrl: api.appUpdateIosUrl || "",
+    appUpdateIosForce: api.appUpdateIosForce || false,
   };
 }
 
