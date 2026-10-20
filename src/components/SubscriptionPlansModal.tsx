@@ -125,6 +125,11 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
               userId: user.id || user._id,
             });
 
+            if (verifyRes?.accessToken) {
+              localStorage.setItem("appAccessToken", verifyRes.accessToken);
+              localStorage.setItem("accessToken", verifyRes.accessToken);
+            }
+
             persistSubscribedUser(
               user,
               verifyRes?.subscriptionPlan || plan.name,

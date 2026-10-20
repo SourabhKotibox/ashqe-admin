@@ -4008,6 +4008,10 @@ export const useVerifySubscriptionRazorpayPayment = () => {
   return useMutation({
     mutationFn: verifySubscriptionRazorpayPayment,
     onSuccess: async (res: any) => {
+      if (res?.accessToken) {
+        localStorage.setItem('appAccessToken', res.accessToken);
+        localStorage.setItem('accessToken', res.accessToken);
+      }
       queryClient.invalidateQueries({ queryKey: ['app-profile'] });
       queryClient.invalidateQueries({ queryKey: ['web-detail'] });
       const synced = await syncAppUserFromProfile();
