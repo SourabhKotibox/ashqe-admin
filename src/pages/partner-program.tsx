@@ -113,20 +113,20 @@ function Landing({ onCta, ctaLabel, compact = false, rate = 10 }: { onCta?: () =
       </section>
 
       <section className={`${card} p-6 sm:p-8 grid md:grid-cols-2 gap-8 items-center`}>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-white">Earnings calculator</h2>
           <p className="text-sm text-white/50 mt-1">How much subscription revenue can you bring in a month?</p>
           <input type="range" min={5000} max={500000} step={5000} value={sales} onChange={(e) => setSales(Number(e.target.value))} className="w-full mt-6 accent-amber-400" />
           <div className="flex justify-between text-xs text-white/40 mt-1"><span>₹5k</span><span>₹5L</span></div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-2xl bg-black/40 border border-white/10 p-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+          <div className="min-w-0 overflow-hidden rounded-2xl bg-black/40 border border-white/10 p-5">
             <p className="text-xs text-white/50">Subscriptions sold</p>
-            <p className="text-2xl font-black text-white mt-1">{inr(sales)}</p>
+            <p className="text-xl lg:text-2xl font-black text-white mt-1 tabular-nums break-all leading-tight">{inr(sales)}</p>
           </div>
-          <div className="rounded-2xl bg-amber-400/10 border border-amber-400/30 p-5">
+          <div className="min-w-0 overflow-hidden rounded-2xl bg-amber-400/10 border border-amber-400/30 p-5">
             <p className="text-xs text-amber-200/70">You earn ({rate}%)</p>
-            <p className="text-2xl font-black text-amber-300 mt-1">{inr((sales * rate) / 100)}</p>
+            <p className="text-xl lg:text-2xl font-black text-amber-300 mt-1 tabular-nums break-all leading-tight">{inr((sales * rate) / 100)}</p>
           </div>
         </div>
       </section>
