@@ -94,7 +94,7 @@ function ThemeApplier() {
     // Identify frontend routes
     const frontendPrefixes = [
       "/membership", "/account", "/wishlist", 
-      "/help-support", "/browse", 
+      "/help-support", "/browse", "/partner-program",
       "/movie", "/watch", "/page", "/login", "/register",
       "/tv-shows-browse", "/show"
     ];
@@ -165,6 +165,10 @@ import CategoriesBrowsePage from "@/pages/categories-browse";
 import PublicAuthPage from "@/pages/public-auth";
 import UserProfilePage from "@/pages/user-profile";
 import MembershipPage from "@/pages/membership";
+import PartnerProgramPage from "@/pages/partner-program";
+import AdminPartnersPage from "@/pages/admin-partners";
+import AdminPartnerDetailPage from "@/pages/admin-partner-detail";
+import { captureReferralFromUrl, attachStoredReferral } from "@/lib/partner-api";
 import PublicPagePage from "@/pages/public-page";
 import WishlistPage from "@/pages/wishlist";
 import HelpSupportPage from "@/pages/help-support";
@@ -220,6 +224,7 @@ const routePermissions: Record<string, string | null> = {
   "/crew": "actors",
   "/countries": "languages",
   "/subscriptions": "subscriptions",
+  "/partners": "subscriptions",
   "/plans": "subscriptionPlans",
   "/plan-limits": "planLimits",
   "/notifications": "notifications",
@@ -339,6 +344,8 @@ function AdminRoutes() {
               <Route path="/subscriptions/new" component={SubscriptionFormPage} />
               <Route path="/subscriptions/:id/edit" component={SubscriptionFormPage} />
               <Route path="/subscriptions" component={SubscriptionsListPage} />
+              <Route path="/partners/:id" component={AdminPartnerDetailPage} />
+              <Route path="/partners" component={AdminPartnersPage} />
               <Route path="/plan-limits/new" component={PlanLimitFormPage} />
               <Route path="/plan-limits/:id/edit" component={PlanLimitFormPage} />
               <Route path="/plan-limits" component={PlanLimitsPage} />
@@ -384,7 +391,7 @@ function isPublicFrontendPath(path: string) {
   const prefixes = [
     "/login", "/register", "/movie", "/watch", "/browse",
     "/tv-shows-browse", "/show", "/account", "/wishlist",
-    "/help-support", "/page", "/membership", "/drama",
+    "/help-support", "/page", "/membership", "/drama", "/partner-program",
   ];
   return prefixes.some((p) => path === p || path.startsWith(`${p}/`));
 }
@@ -402,9 +409,21 @@ function PublicOrAdminFallback() {
   return <AdminRoutes />;
 }
 
+/** Partner program: remember ?ref=CODE and attach it once the visitor is signed in. */
+function useReferralCapture() {
+  useEffect(() => {
+    captureReferralFromUrl();
+    attachStoredReferral();
+    const onUser = () => attachStoredReferral();
+    window.addEventListener("user-updated", onUser);
+    return () => window.removeEventListener("user-updated", onUser);
+  }, []);
+}
+
 function Router() {
   const token = localStorage.getItem("adminAccessToken");
   const [location, setLocation] = useLocation();
+  useReferralCapture();
 
   useEffect(() => {
     if (token && location === "/admin/login") {
@@ -436,6 +455,7 @@ function Router() {
       <Route path="/help-support" component={HelpSupportPage} />
       <Route path="/page/:slug" component={PublicPagePage} />
       <Route path="/membership" component={MembershipPage} />
+      <Route path="/partner-program" component={PartnerProgramPage} />
       
       {/* Admin catch-all route (must be at the end) */}
       <Route>

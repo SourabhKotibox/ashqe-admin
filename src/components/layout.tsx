@@ -45,6 +45,7 @@ import {
   Flame,
   MessageSquare,
   TrendingUp,
+  Handshake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -89,6 +90,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: "/users", label: t('nav.users'), icon: Users, permission: "subscriptions" },
         { href: "/influencers", label: "Role-Based Access", icon: Shield, permission: "influencers" },
         { href: "/approvals", label: "Approvals", icon: CheckCircle, permission: "movies" },
+      ],
+    },
+    {
+      label: "PARTNER PROGRAM",
+      items: [
+        { href: "/partners", label: "Partners", icon: Handshake, permission: "subscriptions" },
       ],
     },
     {

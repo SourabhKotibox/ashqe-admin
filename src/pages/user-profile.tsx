@@ -716,6 +716,17 @@ export default function UserProfilePage() {
                     </div>
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={() => setLocation("/partner-program")}
+                    className="w-full mb-4 flex items-center justify-between gap-4 rounded-2xl border border-amber-400/25 bg-gradient-to-r from-amber-500/15 to-transparent px-5 py-4 text-left hover:border-amber-400/50 transition-colors"
+                  >
+                    <span>
+                      <span className="block text-sm font-bold text-white">Become our partner</span>
+                      <span className="block text-xs text-white/55 mt-0.5">Earn 10% on every subscription you sell. Track referrals and earnings on your dashboard.</span>
+                    </span>
+                    <span className="text-xs font-bold text-amber-300 shrink-0">Partner program →</span>
+                  </button>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                     {[
                       { icon: <Film className="w-4 h-4 text-rose-400" />, label: "History", value: continueWatching.length, onClick: undefined },

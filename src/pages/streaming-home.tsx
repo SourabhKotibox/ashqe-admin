@@ -1252,6 +1252,7 @@ function UserDropdown({ onSignIn, onSignOut, user }: { onSignIn: () => void; onS
           { label: "Account Settings", href: "/account", icon: <User className="w-4 h-4" /> },
           { label: "My Watchlist", href: "/wishlist", icon: <Bookmark className="w-4 h-4" /> },
           { label: "Help & Support", href: "/help-support", icon: <AlertCircle className="w-4 h-4" /> },
+          { label: "Become a Partner", href: "/partner-program", icon: <Crown className="w-4 h-4" /> },
         ].map((opt) => (
           <button
             key={opt.label}
@@ -1349,7 +1350,9 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
     };
     localStorage.setItem("appUser", JSON.stringify(loggedIn));
     localStorage.setItem("user", JSON.stringify(loggedIn));
-    window.location.reload();
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//")) window.location.href = next;
+    else window.location.reload();
   };
 
   const digitsPhone = () => phone.replace(/\D/g, "").slice(-10);

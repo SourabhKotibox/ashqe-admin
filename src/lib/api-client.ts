@@ -214,11 +214,17 @@ const api = async (
         return;
       }
     }
-    throw new Error(errorData.message || errorData.error || "API request failed");
+    const apiError: any = new Error(errorData.message || errorData.error || "API request failed");
+    apiError.details = errorData;
+    apiError.status = res.status;
+    throw apiError;
   }
 
   return res.json();
 };
+
+/** Shared request helper (used by feature modules such as lib/partner-api.ts). */
+export { api as apiRequest };
 
 // Auth
 export const login = async (email, password) => {
