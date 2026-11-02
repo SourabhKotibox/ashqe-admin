@@ -23,7 +23,7 @@ export default function AdminPartnerDetailPage() {
   const p = d?.partner;
   const [f, setF] = useState<any>({});
   useEffect(() => {
-    if (p) setF({ code: p.code, commissionRate: p.commissionRate ?? "", couponCode: p.couponCode || "", couponDiscountPercent: p.couponDiscountPercent ?? "", status: p.status, notes: p.notes || "" });
+    if (p) setF({ code: p.code, commissionRate: p.commissionRate ?? "", couponCode: p.couponCode || "", couponDiscountPercent: p.couponDiscountPercent ?? "", status: p.status, notes: p.notes || "", pan: p.pan || "" });
   }, [p?._id, p?.updatedAt]);
 
   if (q.isLoading) return <Loader2 className="w-5 h-5 animate-spin" />;
@@ -31,7 +31,7 @@ export default function AdminPartnerDetailPage() {
   const s = d.stats;
 
   const save = async () => {
-    try { await update.mutateAsync({ id, ...f }); toast({ title: "Partner updated" }); }
+    try { const body: any = { ...f, couponDiscountPercent: f.couponDiscountPercent === "" ? null : Number(f.couponDiscountPercent) }; if (!body.pan) delete body.pan; await update.mutateAsync({ id, ...body }); toast({ title: "Partner updated" }); }
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
   };
   const cards = [
@@ -87,8 +87,9 @@ export default function AdminPartnerDetailPage() {
             <div><Label>Code</Label><Input value={f.code || ""} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} /></div>
             <div><Label>Rate % (blank = default)</Label><Input type="number" value={f.commissionRate} onChange={(e) => setF({ ...f, commissionRate: e.target.value })} /></div>
             <div><Label>Coupon</Label><Input value={f.couponCode || ""} onChange={(e) => setF({ ...f, couponCode: e.target.value.toUpperCase() })} /></div>
-            <div><Label>Coupon %</Label><Input type="number" value={f.couponDiscountPercent} onChange={(e) => setF({ ...f, couponDiscountPercent: e.target.value })} /></div>
+            <div><Label>Buyer discount % (blank = default, 0 = off)</Label><Input type="number" value={f.couponDiscountPercent} onChange={(e) => setF({ ...f, couponDiscountPercent: e.target.value })} /></div>
           </div>
+          <div><Label>PAN (required before payout)</Label><Input value={f.pan || ""} maxLength={10} placeholder="AAAAA9999A" onChange={(e) => setF({ ...f, pan: e.target.value.toUpperCase() })} /></div>
           <div><Label>Status</Label>
             <Select value={f.status} onValueChange={(v) => setF({ ...f, status: v })}><SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent></Select></div>

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api-client";
+import { apiRequest, getApiBaseUrl } from "@/lib/api-client";
 
 /* ───────────── Partner program API (user + admin) ───────────── */
 
@@ -83,6 +83,40 @@ export const useRequestPayout = () => {
     },
   });
 };
+
+export const useSavePartnerPan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pan: string) => apiRequest("/api/app/partner/pan", { method: "PUT", body: JSON.stringify({ pan }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner-dashboard"] }),
+  });
+};
+
+export const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+/** Server-computed checkout price (partner discount is never computed client-side). */
+export const fetchCheckoutQuote = (planId: string, code?: string) =>
+  apiRequest("/api/app/subscription/partner-quote", { method: "POST", body: JSON.stringify({ planId, code: code || undefined }) });
+
+/** Admin: download TDS-by-partner CSV for a financial year. */
+export async function downloadTdsReport(fy: string) {
+  const token = localStorage.getItem("adminAccessToken");
+  const res = await fetch(`${getApiBaseUrl()}/api/partners/tds-report?fy=${encodeURIComponent(fy)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new Error(`Export failed (${res.status})`);
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `partner-tds-${fy}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/** Indian FY label in IST, e.g. "2026-27". */
+export function currentFy(d = new Date()) {
+  const ist = new Date(d.getTime() + 330 * 60000);
+  const start = ist.getUTCMonth() >= 3 ? ist.getUTCFullYear() : ist.getUTCFullYear() - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+}
 
 export const useApplyReferralCode = () => {
   const qc = useQueryClient();

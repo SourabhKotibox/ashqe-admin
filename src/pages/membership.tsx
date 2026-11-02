@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { fetchCheckoutQuote, getStoredReferral } from "@/lib/partner-api";
 import { Link, useLocation } from "wouter";
 import {
   useGetWebSubscriptionPlans,
@@ -132,11 +133,28 @@ export default function MembershipPage() {
 
   const selectedPlan = plans.find((p: any) => (p._id || p.id) === selectedPlanId);
 
+  // Partner code / buyer discount (server-quoted; server re-applies on order)
+  const [partnerCode, setPartnerCode] = useState<string>(() => getStoredReferral() || "");
+  const [appliedCode, setAppliedCode] = useState<string>(() => getStoredReferral() || "");
+  const [quote, setQuote] = useState<any>(null);
+  const isPaidPlan = !!selectedPlan && (selectedPlan.name || "").toLowerCase() !== "free";
+  useEffect(() => {
+    if (!selectedPlanId || !isPaidPlan || !user) { setQuote(null); return; }
+    let cancelled = false;
+    fetchCheckoutQuote(selectedPlanId, appliedCode || undefined)
+      .then((r: any) => { if (!cancelled) setQuote(r?.data || r); })
+      .catch(() => { if (!cancelled) setQuote(null); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlanId, appliedCode, isPaidPlan]);
+  const hasDiscount = !!quote && quote.discountAmount > 0;
+  const payable = hasDiscount ? quote.finalAmount : selectedPlan?.totalPrice;
+
   const handlePurchase = async () => {
     if (!selectedPlanId || processing) return;
     setProcessing(true);
     try {
-      const orderRes: any = await createOrderMutation.mutateAsync({ planId: selectedPlanId });
+      const orderRes: any = await createOrderMutation.mutateAsync({ planId: selectedPlanId, partnerCode: appliedCode || undefined });
       
       if (orderRes?.success && orderRes?.isFree) {
         showToast("🎉 Free plan activated successfully!", "success");
@@ -369,7 +387,25 @@ export default function MembershipPage() {
                     </span>
                   </div>
                   
-                  {(selectedPlan.discount > 0) && (
+                  {isPaidPlan && (
+                    <div className="mt-3 pt-3 border-t border-border/40">
+                      <label className="text-[11px] font-semibold text-muted-foreground">Partner code</label>
+                      <div className="flex gap-2 mt-1">
+                        <input id="membership-partner-code" value={partnerCode} onChange={(e) => setPartnerCode(e.target.value.toUpperCase())}
+                          placeholder="Enter code" className="flex-1 h-9 rounded-lg bg-background border border-border/60 px-3 text-sm uppercase" />
+                        <button type="button" onClick={() => setAppliedCode(partnerCode.trim())} className="h-9 px-3 rounded-lg bg-primary/15 text-primary text-xs font-bold">Apply</button>
+                      </div>
+                      {quote?.message && <p className={`text-[11px] mt-1 ${hasDiscount ? "text-emerald-500" : "text-muted-foreground"}`}>{quote.message}</p>}
+                    </div>
+                  )}
+                  {hasDiscount && (
+                    <div id="membership-price-breakdown" className="mt-3 pt-3 border-t border-border/40 space-y-1 text-xs">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Original price</span><span className="line-through text-muted-foreground">{formatPrice(quote.listPrice)}</span></div>
+                      <div className="flex justify-between text-emerald-500 font-bold"><span>Partner discount{quote.code ? ` (${quote.code})` : ""} −{quote.discountPercent}%</span><span>−{formatPrice(quote.discountAmount)}</span></div>
+                      <div className="flex justify-between font-black text-sm text-foreground"><span>You pay</span><span>{formatPrice(quote.finalAmount)}</span></div>
+                    </div>
+                  )}
+                  {(!hasDiscount && selectedPlan.discount > 0) && (
                     <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/40">
                       <span className="text-emerald-500 text-xs font-bold">Discount applied</span>
                       <span className="text-emerald-500 text-xs font-bold">-{selectedPlan.discount}%</span>
@@ -413,7 +449,7 @@ export default function MembershipPage() {
                     <span>
                       {(selectedPlan?.name || "").toLowerCase() === "free"
                         ? "Activate Free Plan"
-                        : `Pay ${formatPrice(selectedPlan?.totalPrice)} · Subscribe`}
+                        : `Pay ${formatPrice(payable)} · Subscribe`}
                     </span>
                     <ChevronRight className="w-5 h-5" />
                   </>

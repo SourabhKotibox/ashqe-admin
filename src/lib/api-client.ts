@@ -74,6 +74,8 @@ export const setBaseUrl = (url) => {
   baseUrl = url;
 };
 
+export const getApiBaseUrl = () => baseUrl;
+
 export const setAuthTokenGetter = (getter) => {
   getAuthToken = getter;
 };
@@ -3983,7 +3985,7 @@ export const removeOfflineVideo = async (contentId: string, episodeId?: string) 
 
 // ── Razorpay Subscription Purchase ──────────────────────────────────────────
 
-export const createSubscriptionRazorpayOrder = async (data: { planId: string; userId?: string }) => {
+export const createSubscriptionRazorpayOrder = async (data: { planId: string; userId?: string; partnerCode?: string }) => {
   return api('/app/subscription/razorpay/order', {
     method: 'POST',
     body: JSON.stringify(data),

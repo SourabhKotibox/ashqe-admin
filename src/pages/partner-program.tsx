@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   fmtDate, inr, useApplyForPartner, usePartnerCommissions, usePartnerDashboard, usePartnerPayouts,
   usePartnerReferrals, usePartnerStatus, useRequestPayout,
+  useSavePartnerPan,
+  PAN_REGEX,
 } from "@/lib/partner-api";
 
 const card = "bg-white/[0.03] border border-white/10 rounded-2xl";
@@ -309,6 +311,8 @@ function PartnerDashboard({ status }: { status: any }) {
   const comms = usePartnerCommissions(page, tab === "commissions");
   const payouts = usePartnerPayouts(true);
   const requestPayout = useRequestPayout();
+  const savePan = useSavePartnerPan();
+  const [panInput, setPanInput] = useState("");
   const d = dashRes?.data;
   const p = d?.partner || status.partner;
   const s = d?.stats;
@@ -341,7 +345,15 @@ function PartnerDashboard({ status }: { status: any }) {
   };
 
   if (isLoading || !s) return <div className="flex justify-center py-32"><Loader2 className="w-8 h-8 animate-spin text-amber-400" /></div>;
-  const canWithdraw = s.availableBalance >= (d.program?.minPayout || 500) && !openPayout;
+  const panOnFile = !!p.panOnFile;
+  const canWithdraw = s.availableBalance >= (d.program?.minPayout || 500) && !openPayout && panOnFile;
+  const est = d.tds?.estimateOnAvailable;
+  const onSavePan = async () => {
+    const v = panInput.trim().toUpperCase();
+    if (!PAN_REGEX.test(v)) { toast({ title: "Invalid PAN", description: "Format: AAAAA9999A", variant: "destructive" }); return; }
+    try { await savePan.mutateAsync(v); setPanInput(""); toast({ title: "PAN saved" }); }
+    catch (e: any) { toast({ title: "Couldn't save PAN", description: e?.message, variant: "destructive" }); }
+  };
 
   return (
     <div className="space-y-6">
@@ -435,12 +447,29 @@ function PartnerDashboard({ status }: { status: any }) {
           <p className="font-bold text-white">Withdraw earnings</p>
           <p className="text-white/50 mt-0.5">
             Paid to {p.payoutDestination || "your registered account"}. Commission becomes withdrawable {d.program?.holdDays ?? 7} days after the purchase.
-            {openPayout && <span className="text-amber-300"> A payout of {inr(openPayout.amount, 2)} is being processed.</span>}
+            {openPayout && <span className="text-amber-300"> A payout of {inr(openPayout.netAmount || openPayout.amount, 2)} (net of TDS) is being processed.</span>}
           </p>
+          {est && s.availableBalance > 0 && (
+            <p className="text-white/70 mt-2 font-mono text-xs">
+              Gross {inr(s.availableBalance, 2)} − TDS {d.program?.tdsRate}% {inr(est.tdsAmount, 2)} = <span className="text-emerald-300 font-bold">Net {inr(est.netAmount, 2)}</span>
+            </p>
+          )}
+          <p className="text-white/40 mt-1 text-xs">
+            TDS FY {d.tds?.financialYear}: {inr(d.tds?.tdsDeducted, 2)} deducted on {inr(d.tds?.grossPaid, 2)} paid. TDS applies once your FY commission exceeds {inr(d.program?.tdsThresholdPerFY)}.
+            {panOnFile ? <> PAN {p.pan} on file.</> : null}
+          </p>
+          {!panOnFile && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-amber-300 text-xs font-semibold">PAN is required before your first payout.</span>
+              <input value={panInput} onChange={(e) => setPanInput(e.target.value.toUpperCase())} maxLength={10} placeholder="ABCDE1234F"
+                className="h-9 w-36 rounded-lg bg-black/40 border border-white/15 px-3 text-sm font-mono text-white" />
+              <button onClick={onSavePan} disabled={savePan.isPending} className="h-9 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold text-white">Save PAN</button>
+            </div>
+          )}
         </div>
         <button onClick={onPayout} disabled={!canWithdraw || requestPayout.isPending}
           className="h-11 px-5 rounded-xl bg-emerald-400 hover:bg-emerald-300 disabled:opacity-40 text-black font-bold text-sm inline-flex items-center gap-2 shrink-0">
-          {requestPayout.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Request payout of {inr(s.availableBalance, 2)}
+          {requestPayout.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Request payout · net {inr(est ? est.netAmount : s.availableBalance, 2)}
         </button>
       </div>
 
@@ -457,12 +486,12 @@ function PartnerDashboard({ status }: { status: any }) {
               rows={(refs.data?.data || []).map((r: any) => [r.name, fmtDate(r.joinedAt), r.isPaying ? <Pill s="approved" /> : <span className="text-white/40 text-xs">Signed up</span>, r.purchases, inr(r.spent, 2), <span className="text-amber-300 font-semibold">{inr(r.commission, 2)}</span>])} />
           )}
           {tab === "commissions" && (
-            <Table head={["Date", "User", "Plan", "Sale", "Rate", "Commission", "Status"]} loading={comms.isLoading}
-              rows={(comms.data?.data || []).map((c: any) => [fmtDate(c.createdAt), c.userName || "—", <span>{c.planName}{c.isRenewal && <span className="ml-1 text-[10px] text-sky-300">renewal</span>}</span>, inr(c.saleAmount, 2), `${c.rate}%`, <span className="font-semibold text-white">{inr(c.amount, 2)}</span>, <span title={c.status === "pending" ? `Confirms on ${fmtDate(c.holdUntil)}` : c.reversalReason || ""}><Pill s={c.status} /></span>])} />
+            <Table head={["Date", "User", "Plan", "Paid (incl. GST)", "Rate", "Commission", "Status"]} loading={comms.isLoading}
+              rows={(comms.data?.data || []).map((c: any) => [fmtDate(c.createdAt), c.userName || "—", <span>{c.planName}{c.isRenewal && <span className="ml-1 text-[10px] text-sky-300">renewal</span>}</span>, <span>{inr(c.saleAmount, 2)}{c.discountAmount > 0 && <span className="block text-[10px] text-emerald-300">{c.discountPercent}% buyer discount</span>}</span>, `${c.rate}%`, <span className="font-semibold text-white">{inr(c.amount, 2)}</span>, <span title={c.status === "pending" ? `Confirms on ${fmtDate(c.holdUntil)}` : c.reversalReason || ""}><Pill s={c.status} /></span>])} />
           )}
           {tab === "payouts" && (
-            <Table head={["Requested", "Amount", "To", "Status", "Reference", "Processed"]} loading={payouts.isLoading}
-              rows={(payouts.data?.data || []).map((x: any) => [fmtDate(x.createdAt), inr(x.amount, 2), x.destination, <Pill s={x.status} />, x.reference || x.adminNote || "—", fmtDate(x.processedAt)])} />
+            <Table head={["Requested", "Gross", "TDS", "Net paid", "To", "Status", "Reference", "Processed"]} loading={payouts.isLoading}
+              rows={(payouts.data?.data || []).map((x: any) => [fmtDate(x.createdAt), inr(x.amount, 2), <span className="text-rose-300">{x.tdsAmount ? `−${inr(x.tdsAmount, 2)}` : "—"}</span>, <span className="font-semibold text-emerald-300">{inr(x.netAmount ?? x.amount, 2)}</span>, x.destination, <Pill s={x.status} />, x.reference || x.adminNote || "—", fmtDate(x.processedAt)])} />
           )}
         </div>
         {tab !== "payouts" && (() => {

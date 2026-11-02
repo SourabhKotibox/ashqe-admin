@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { useToast } from "@/hooks/use-toast";
 import {
   fmtDate, inr, useAdminPartnerApplications, useAdminPartnerCommissions, useAdminPartnerOverview, useAdminPartnerPayouts,
-  useAdminPartners, useAdminPartnerSettings, useProcessPayout, useReverseCommission, useReviewApplication, useUpdatePartnerSettings,
+  useAdminPartners, useAdminPartnerSettings, useProcessPayout, useReverseCommission, useReviewApplication, useUpdatePartnerSettings, downloadTdsReport, currentFy,
 } from "@/lib/partner-api";
 
 const BADGE: Record<string, string> = {
@@ -265,6 +265,9 @@ export function CommissionsTab({ partnerId }: { partnerId?: string }) {
 export function PayoutsTab({ partnerId }: { partnerId?: string }) {
   const { toast } = useToast();
   const [status, setStatus] = useState("all");
+  const [fy, setFy] = useState(currentFy());
+  const fyOpts = (() => { const y = Number(currentFy().slice(0, 4)); return [0, 1, 2].map((d) => `${y - d}-${String((y - d + 1) % 100).padStart(2, "0")}`); })();
+  const exportTds = async () => { try { await downloadTdsReport(fy); } catch (e: any) { toast({ title: "Export failed", description: e?.message, variant: "destructive" }); } };
   const q = useAdminPartnerPayouts({ status, partnerId });
   const process = useProcessPayout();
   const [sel, setSel] = useState<any>(null);
@@ -276,17 +279,29 @@ export function PayoutsTab({ partnerId }: { partnerId?: string }) {
   };
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
       <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
         <SelectContent>{["all", "requested", "paid", "rejected"].map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
+      {!partnerId && (
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-xs text-muted-foreground">TDS report FY</span>
+          <Select value={fy} onValueChange={setFy}><SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+            <SelectContent>{fyOpts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select>
+          <Button variant="outline" size="sm" onClick={exportTds}>Export TDS CSV</Button>
+        </div>
+      )}
+      </div>
       <div className="rounded-xl border border-border bg-card">
         <Table>
-          <TableHeader><TableRow><TableHead>Requested</TableHead>{!partnerId && <TableHead>Partner</TableHead>}<TableHead className="text-right">Amount</TableHead><TableHead>Pay to</TableHead><TableHead>Status</TableHead><TableHead>Reference</TableHead><TableHead>Processed</TableHead><TableHead /></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Requested</TableHead>{!partnerId && <TableHead>Partner</TableHead>}<TableHead className="text-right">Gross</TableHead><TableHead className="text-right">TDS</TableHead><TableHead className="text-right">Net payable</TableHead><TableHead>Pay to</TableHead><TableHead>Status</TableHead><TableHead>Reference</TableHead><TableHead>Processed</TableHead><TableHead /></TableRow></TableHeader>
           <TableBody>
-            {!(q.data?.data || []).length ? <Empty cols={8} loading={q.isLoading} /> : q.data.data.map((x: any) => (
+            {!(q.data?.data || []).length ? <Empty cols={10} loading={q.isLoading} /> : q.data.data.map((x: any) => (
               <TableRow key={x._id}>
                 <TableCell className="text-sm">{fmtDate(x.createdAt)}</TableCell>
                 {!partnerId && <TableCell><p className="text-sm font-semibold">{x.partnerId?.displayName}</p><p className="font-mono text-[11px] text-muted-foreground">{x.partnerId?.code}</p></TableCell>}
                 <TableCell className="text-right font-semibold">{inr(x.amount, 2)}{x.clawbackDeducted > 0 && <p className="text-[10px] text-rose-500">−{inr(x.clawbackDeducted, 2)} clawback</p>}</TableCell>
+                <TableCell className="text-right text-sm text-rose-500">{x.tdsAmount > 0 ? `−${inr(x.tdsAmount, 2)}` : "—"}{x.tdsRate > 0 && x.tdsAmount > 0 && <p className="text-[10px] text-muted-foreground">{x.tdsRate}% · FY {x.financialYear}</p>}</TableCell>
+                <TableCell className="text-right font-bold text-emerald-500">{inr(x.netAmount ?? x.amount, 2)}{x.status === "requested" && !x.pan && !x.partnerId?.pan && <p className="text-[10px] text-rose-500 font-semibold">no PAN</p>}</TableCell>
                 <TableCell className="text-sm">{x.method?.toUpperCase()} · {x.status === "requested" && x.partnerId?.upiId ? x.partnerId.upiId : x.destination}</TableCell>
                 <TableCell><StatusBadge s={x.status} /></TableCell>
                 <TableCell className="font-mono text-xs">{x.reference || x.adminNote || "—"}</TableCell>
@@ -299,7 +314,13 @@ export function PayoutsTab({ partnerId }: { partnerId?: string }) {
       </div>
       <Dialog open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Process payout — {inr(sel?.amount, 2)}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Process payout — net {inr(sel?.netAmount ?? sel?.amount, 2)}</DialogTitle></DialogHeader>
+          <div className="rounded-lg border border-border p-3 text-sm space-y-1">
+            <div className="flex justify-between"><span className="text-muted-foreground">Gross commission</span><span>{inr(sel?.amount, 2)}</span></div>
+            <div className="flex justify-between text-rose-500"><span>TDS {sel?.tdsRate || 0}% {sel?.tdsSection ? `(${sel.tdsSection})` : ""}</span><span>−{inr(sel?.tdsAmount || 0, 2)}</span></div>
+            <div className="flex justify-between font-semibold border-t border-border pt-1"><span>Net to transfer</span><span>{inr(sel?.netAmount ?? sel?.amount, 2)}</span></div>
+            <p className="text-[11px] text-muted-foreground">PAN {sel?.pan || "—"} · FY {sel?.financialYear || "—"}. TDS is recomputed when marked paid.</p>
+          </div>
           <p className="text-sm text-muted-foreground">Transfer the amount manually (UPI / NEFT), then record the UTR / transaction reference here.</p>
           <div className="space-y-3">
             <div><Label>Transaction reference (UTR) *</Label><Input value={ref} onChange={(e) => setRef(e.target.value)} /></div>
@@ -346,10 +367,22 @@ function SettingsTab() {
         {num("reviewSlaHours", "Review SLA (hours)", "Shown to applicants: “approved within N hours”.")}
         <div><Label>Commission base</Label>
           <Select value={s.commissionBase} onValueChange={(v) => set("commissionBase", v)}><SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="net">Net (excluding GST)</SelectItem><SelectItem value="gross">Gross (amount paid)</SelectItem></SelectContent></Select>
-          <p className="text-xs text-muted-foreground mt-1">10% of ₹50,000 net = ₹5,000.</p></div>
+            <SelectContent><SelectItem value="gross">Gross (amount paid incl. GST, after discount)</SelectItem><SelectItem value="net">Net (excluding GST)</SelectItem></SelectContent></Select>
+          <p className="text-xs text-muted-foreground mt-1">10% of ₹1,062 paid = ₹106.20.</p></div>
       </div>
       <div className="flex items-center justify-between"><div><p className="font-semibold">Pay commission on renewals</p><p className="text-xs text-muted-foreground">If off, only a referred user’s first purchase earns commission.</p></div><Switch checked={!!s.commissionOnRenewals} onCheckedChange={(v) => set("commissionOnRenewals", v)} /></div>
+      <div className="border-t border-border pt-5 space-y-4">
+        <div className="flex items-center justify-between"><div><p className="font-semibold">Buyer discount via partner code</p><p className="text-xs text-muted-foreground">Referred / code-entering buyers get this % off; applied server-side to the Razorpay amount. Per-partner override on the partner page (0 = off).</p></div><Switch checked={!!s.buyerDiscountEnabled} onCheckedChange={(v) => set("buyerDiscountEnabled", v)} /></div>
+        <div className="grid sm:grid-cols-2 gap-5">{num("buyerDiscountPercent", "Default buyer discount %", "Max 90%.")}</div>
+        <div className="flex items-center justify-between"><div><p className="font-semibold">Discount on renewals</p><p className="text-xs text-muted-foreground">Off = first purchase only.</p></div><Switch checked={!!s.discountOnRenewals} onCheckedChange={(v) => set("discountOnRenewals", v)} /></div>
+      </div>
+      <div className="border-t border-border pt-5 space-y-4">
+        <div className="flex items-center justify-between"><div><p className="font-semibold">Deduct TDS on payouts</p><p className="text-xs text-muted-foreground">Commission TDS ({s.tdsSection || "s.393(1) IT Act 2025, old 194H"}). PAN required before first payout.</p></div><Switch checked={!!s.tdsEnabled} onCheckedChange={(v) => set("tdsEnabled", v)} /></div>
+        <div className="grid sm:grid-cols-2 gap-5">
+          {num("tdsRate", "TDS rate %", "2% from 1 Oct 2024.")}
+          {num("tdsThresholdPerFY", "Threshold per FY (₹)", "₹20,000 from 1 Apr 2025. Once crossed, TDS applies to the whole FY amount.")}
+        </div>
+      </div>
       <div><Label>Partner terms URL</Label><Input value={s.termsUrl || ""} onChange={(e) => set("termsUrl", e.target.value)} placeholder="/page/partner-terms" /></div>
       <Button onClick={onSave} disabled={save.isPending || !f}>Save settings</Button>
     </div>
