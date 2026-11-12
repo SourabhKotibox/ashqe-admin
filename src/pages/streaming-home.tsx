@@ -12,6 +12,8 @@ import {
   Volume2, VolumeX, ExternalLink, SkipForward,
   Monitor,
   Video,
+  Handshake,
+  ArrowRight,
 } from "lucide-react";
 import {
   useGetWebHome, useGetWebBrowse, loginClient, registerClient, sendOtpClient, verifyOtpClient, useGetPages,
@@ -24,6 +26,7 @@ import { WebsiteReviews } from "@/components/WebsiteReviews";
 import { LandscapeCard, PortraitCard } from "@/components/ContentCard";
 import Hls from "hls.js";
 import SubscriptionPlansModal from "@/components/SubscriptionPlansModal";
+import { getStoredReferral, attachStoredReferral } from "@/lib/partner-api";
 
 /* ─── TYPES ─── */
 interface ContentItem {
@@ -652,6 +655,100 @@ function SubscribeBanner({ onSubscribeClick }: { onSubscribeClick: () => void })
   );
 }
 
+/* ─── BECOME A PARTNER BANNER (Dismissible with 90-min snooze) ─── */
+const PARTNER_BANNER_SNOOZE_KEY = "ashqe_partner_banner_dismissed_until";
+const PARTNER_BANNER_SNOOZE_MS = 90 * 60 * 1000; // 1 hour 30 minutes
+
+function BecomePartnerHomeSection({ user }: { user?: any }) {
+  const [, setLocation] = useLocation();
+  const [isDismissed, setIsDismissed] = useState(true);
+
+  useEffect(() => {
+    try {
+      const untilStr = localStorage.getItem(PARTNER_BANNER_SNOOZE_KEY);
+      if (untilStr) {
+        const until = Number(untilStr);
+        if (Date.now() < until) {
+          setIsDismissed(true);
+          return;
+        }
+      }
+      setIsDismissed(false);
+    } catch {
+      setIsDismissed(false);
+    }
+  }, []);
+
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      localStorage.setItem(PARTNER_BANNER_SNOOZE_KEY, String(Date.now() + PARTNER_BANNER_SNOOZE_MS));
+    } catch {}
+    setIsDismissed(true);
+  };
+
+  if (isDismissed) return null;
+
+  return (
+    <div className="mx-4 sm:mx-8 lg:mx-12 my-6 rounded-3xl relative overflow-hidden border border-amber-400/25 bg-gradient-to-br from-amber-500/10 via-[#0a080d] to-[#030306] p-6 sm:p-9 shadow-2xl shadow-amber-950/20 animate-in fade-in duration-300">
+      {/* Background ambient lighting */}
+      <div className="pointer-events-none absolute -top-24 -left-24 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -right-24 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl" />
+
+      {/* Cross (Close) Button */}
+      <button
+        type="button"
+        onClick={handleDismiss}
+        title="Hide for 1 hr 30 mins"
+        aria-label="Close"
+        className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/50 hover:bg-black/90 border border-white/10 hover:border-white/30 text-white/60 hover:text-white flex items-center justify-center transition-all backdrop-blur-sm"
+      >
+        <X className="w-4 h-4" />
+      </button>
+
+      <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div className="max-w-2xl space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
+            <Handshake className="w-3.5 h-3.5" />
+            <span>Become Our Partner</span>
+          </div>
+
+          <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+            Earn <span className="text-amber-400">10% on Every Subscription</span> You Sell
+          </h3>
+
+          <p className="text-white/70 text-xs sm:text-sm leading-relaxed">
+            Share your link on WhatsApp, Instagram, or YouTube. Earn recurring commissions for every viewer you refer, with real-time tracking and direct UPI/bank payouts.
+          </p>
+
+          <div className="pt-1 flex flex-wrap items-center gap-2.5 text-[11px] font-semibold text-white/75">
+            <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Fast 24h Approval
+            </span>
+            <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Live Earnings Dashboard
+            </span>
+            <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400" /> Direct UPI / Bank Payouts
+            </span>
+          </div>
+        </div>
+
+        <div className="flex-shrink-0 flex items-center gap-3 w-full sm:w-auto pt-1 lg:pt-0">
+          <button
+            type="button"
+            onClick={() => setLocation("/partner-program")}
+            className="w-full sm:w-auto px-7 py-3.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-lg shadow-amber-900/30 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>Apply Now</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── MOVIES GRID TAB ─── */
 function MoviesTab({ onPlay }: { onPlay: (item: ContentItem) => void }) {
   const [activeGenre, setActiveGenre] = useState("All");
@@ -1127,6 +1224,9 @@ function HomeTab({ onPlay, onSubscribeClick, isSubscribed, user, onSignIn }: {
         </section>
       )}
 
+      {/* ── DEDICATED BECOME A PARTNER SECTION (HOME PAGE ONLY, 1H 30M DISMISS SNOOZE) ── */}
+      <BecomePartnerHomeSection user={user} />
+
       {webSections.length > 0 ? (
         webSections.map((section: any, index: number) => {
           if (section.layout === 'ad') {
@@ -1303,6 +1403,10 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const storedRef = getStoredReferral() || "";
+  const [referralCode, setReferralCode] = useState(storedRef);
+  const [showReferralInput, setShowReferralInput] = useState(!!storedRef);
+
   const { settings } = useSettings();
   const { resolvedTheme } = useTheme();
 
@@ -1350,6 +1454,18 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
     };
     localStorage.setItem("appUser", JSON.stringify(loggedIn));
     localStorage.setItem("user", JSON.stringify(loggedIn));
+
+    // Ensure referral is attached if a code was provided or stored
+    const finalCode = referralCode.trim().toUpperCase() || storedRef;
+    if (finalCode) {
+      try {
+        localStorage.setItem("ashqe_partner_ref", JSON.stringify({ code: finalCode, at: Date.now() }));
+        attachStoredReferral();
+      } catch {}
+    } else {
+      attachStoredReferral();
+    }
+
     const next = new URLSearchParams(window.location.search).get("next");
     if (next && next.startsWith("/") && !next.startsWith("//")) window.location.href = next;
     else window.location.reload();
@@ -1405,6 +1521,7 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
       name: name.trim() || undefined,
       deviceId: typeof window !== "undefined" ? `web-${navigator.userAgent.slice(0, 40)}` : "web",
       deviceName: "Website",
+      referralCode: referralCode.trim().toUpperCase() || undefined,
     });
     persistSession(res, name.trim() || mobile);
   };
@@ -1428,7 +1545,13 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
         const res = await loginClient({ email, password });
         persistSession(res, email.split("@")[0]);
       } else {
-        const res = await registerClient({ email, password, name, phone: phone || undefined });
+        const res = await registerClient({
+          email,
+          password,
+          name,
+          phone: phone || undefined,
+          referralCode: referralCode.trim().toUpperCase() || undefined,
+        });
         persistSession({ ...res, name }, name);
       }
     } catch (err: any) {
@@ -1566,6 +1689,44 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
                 </div>
               </>
             )}
+
+            {/* Partner / Referral Code */}
+            <div className="pt-1">
+              {!showReferralInput ? (
+                <button
+                  type="button"
+                  onClick={() => setShowReferralInput(true)}
+                  className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors text-left"
+                >
+                  <span>+ Have a partner or referral code?</span>
+                </button>
+              ) : (
+                <div className="bg-zinc-900/90 border border-zinc-800 rounded-xl p-3 space-y-1.5 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-white/80 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Partner Referral Code
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setShowReferralInput(false); setReferralCode(""); }}
+                      className="text-[10px] text-white/40 hover:text-white"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    placeholder="Enter partner code (e.g. ASHQE123)"
+                    className="w-full bg-black/60 border border-zinc-700 text-white placeholder:text-white/40 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider focus:outline-none focus:border-amber-400"
+                  />
+                  {storedRef && storedRef === referralCode && (
+                    <p className="text-[10px] text-emerald-400 font-medium">Applied automatically from partner link</p>
+                  )}
+                </div>
+              )}
+            </div>
 
             <button disabled={loading || sendingOtp} type="submit" className="w-full mt-2 py-3 bg-amber-400 hover:bg-amber-500 text-black font-bold rounded-xl transition-all text-xs flex justify-center items-center h-[44px] shadow-lg shadow-amber-900/20 hover:-translate-y-0.5 active:translate-y-0">
               {loading || sendingOtp ? <Loader2 className="w-5 h-5 animate-spin" /> : (

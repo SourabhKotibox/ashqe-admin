@@ -3,6 +3,7 @@ import { X, Crown, Check, Loader2, Sparkles, Flame, Play } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useGetWebSubscriptionPlans, useCreateSubscriptionRazorpayOrder, useVerifySubscriptionRazorpayPayment, persistAppSessionUser } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
+import { fetchCheckoutQuote, getStoredReferral } from "@/lib/partner-api";
 
 const normalizePlanKey = (name?: string) => {
   const n = String(name || "free").toLowerCase();
@@ -49,6 +50,11 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
   const [user, setUser] = useState<any>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
+  // Partner / referral code support
+  const [partnerCode, setPartnerCode] = useState<string>(() => getStoredReferral() || "");
+  const [appliedCode, setAppliedCode] = useState<string>(() => getStoredReferral() || "");
+  const [quote, setQuote] = useState<any>(null);
+
   useEffect(() => {
     try {
       const storedUser = localStorage.getItem("appUser");
@@ -72,6 +78,26 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
 
   const plans = (plansData?.data || []).filter((p: any) => p.name !== "free");
 
+  useEffect(() => {
+    if (!appliedCode || !plans.length) {
+      setQuote(null);
+      return;
+    }
+    const targetPlan = plans[0];
+    if (!targetPlan) return;
+    let cancelled = false;
+    fetchCheckoutQuote(targetPlan.id || targetPlan._id, appliedCode)
+      .then((res: any) => {
+        if (!cancelled) setQuote(res?.data || res);
+      })
+      .catch(() => {
+        if (!cancelled) setQuote(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedCode, plans.length]);
+
   const handleSubscribe = async (plan: any) => {
     if (!user) {
       toast({
@@ -89,6 +115,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
       const orderData = await createOrderMutation.mutateAsync({
         planId: plan.id || plan._id,
         userId: user.id || user._id,
+        partnerCode: appliedCode || undefined,
       });
 
       if (orderData.isFree) {
@@ -128,6 +155,10 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
             if (verifyRes?.accessToken) {
               localStorage.setItem("appAccessToken", verifyRes.accessToken);
               localStorage.setItem("accessToken", verifyRes.accessToken);
+            }
+
+            if (appliedCode) {
+              try { localStorage.removeItem("ashqe_partner_ref"); } catch {}
             }
 
             persistSubscribedUser(
@@ -202,9 +233,46 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-8">
-          <p className="text-white/70 text-sm text-center max-w-lg mx-auto mb-8 leading-relaxed">
+          <p className="text-white/70 text-sm text-center max-w-lg mx-auto mb-6 leading-relaxed">
             Unlock unlimited access to the entire Ashqe library. Supercharge your streaming experience with crystal-clear HD and zero ads.
           </p>
+
+          {/* Partner / Referral Discount Code Input */}
+          <div className="max-w-xl mx-auto mb-8 bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-xs font-bold text-white">Have a Partner or Referral Code?</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={partnerCode}
+                  onChange={(e) => setPartnerCode(e.target.value.toUpperCase())}
+                  placeholder="ENTER CODE"
+                  className="bg-black/60 border border-zinc-700 text-white placeholder:text-zinc-500 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider w-36 focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trimmed = partnerCode.trim().toUpperCase();
+                    setAppliedCode(trimmed);
+                    if (trimmed) {
+                      toast({ title: "Partner code applied", description: `Code ${trimmed} will be applied.` });
+                    }
+                  }}
+                  className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold rounded-lg transition-colors shrink-0"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+            {quote?.message && (
+              <p className={`text-xs mt-2.5 font-semibold ${quote.discountAmount > 0 ? "text-emerald-400" : "text-zinc-400"}`}>
+                {quote.message}
+              </p>
+            )}
+          </div>
 
           {loadingPlans ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -251,7 +319,25 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
 
                       {/* Plan Price */}
                       <div className="flex items-baseline gap-1 mt-1 mb-2">
-                        <span className="text-3xl font-black text-white">{settings?.currencyPosition === 'before' ? (settings?.currencySymbol || '₹') + (plan.totalPrice ?? plan.price) : (plan.totalPrice ?? plan.price) + ' ' + (settings?.currencySymbol || '₹')}</span>
+                        {quote && quote.discountPercent > 0 ? (
+                          <div className="flex flex-col">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-3xl font-black text-emerald-400">
+                                {settings?.currencyPosition === 'before'
+                                  ? (settings?.currencySymbol || '₹') + Math.round((plan.totalPrice ?? plan.price) * (1 - quote.discountPercent / 100))
+                                  : Math.round((plan.totalPrice ?? plan.price) * (1 - quote.discountPercent / 100)) + ' ' + (settings?.currencySymbol || '₹')}
+                              </span>
+                              <span className="text-xs text-zinc-500 line-through">
+                                {settings?.currencyPosition === 'before' ? (settings?.currencySymbol || '₹') + (plan.totalPrice ?? plan.price) : (plan.totalPrice ?? plan.price) + ' ' + (settings?.currencySymbol || '₹')}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-emerald-400 font-bold mt-0.5">
+                              {quote.discountPercent}% partner discount applied
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-3xl font-black text-white">{settings?.currencyPosition === 'before' ? (settings?.currencySymbol || '₹') + (plan.totalPrice ?? plan.price) : (plan.totalPrice ?? plan.price) + ' ' + (settings?.currencySymbol || '₹')}</span>
+                        )}
                         <span className="text-sm font-medium text-white/70">/ {plan.duration || 'month'}</span>
                       </div>
 

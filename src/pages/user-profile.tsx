@@ -5,7 +5,7 @@ import {
   Heart, Shield, Trash2, ChevronRight, Play, Check,
   Loader2, Bell, ArrowLeft, Star, Edit3, Camera, AlertTriangle,
   Bookmark, Settings, CreditCard, Film, Tv, X, Download, BookmarkX,
-  Plus, UserCircle2, Wifi, Smartphone
+  Plus, UserCircle2, Wifi, Smartphone, Sparkles
 } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useTheme } from "next-themes";
@@ -15,6 +15,7 @@ import {
   useGetDownloads, useRemoveDownload, getOfflineVideoUrl, removeOfflineVideo, hasOfflineVideo,
   useGetAppProfile, useGetWatchHistory,
 } from "@/lib/api-client";
+import { usePartnerStatus, useApplyReferralCode } from "@/lib/partner-api";
 import { PublicFooter } from "@/pages/streaming-home";
 import { WebsiteReviews } from "@/components/WebsiteReviews";
 
@@ -342,6 +343,13 @@ export default function UserProfilePage() {
   const removeDownloadMutation = useRemoveDownload();
 
   const [offlineCached, setOfflineCached] = useState<Record<string, boolean>>({});
+
+  // Partner program status & referral code apply
+  const { data: partnerStatusRes, refetch: refetchPartnerStatus } = usePartnerStatus(!!user);
+  const partnerStatus = partnerStatusRes?.data;
+  const applyReferralMutation = useApplyReferralCode();
+  const [manualPartnerCode, setManualPartnerCode] = useState("");
+  const [partnerApplyLoading, setPartnerApplyLoading] = useState(false);
 
   const getLogoUrl = () => {
     if (resolvedTheme === "dark" && settings.darkLogoUrl) return getImageUrl(settings.darkLogoUrl);
@@ -716,17 +724,108 @@ export default function UserProfilePage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setLocation("/partner-program")}
-                    className="w-full mb-4 flex items-center justify-between gap-4 rounded-2xl border border-amber-400/25 bg-gradient-to-r from-amber-500/15 to-transparent px-5 py-4 text-left hover:border-amber-400/50 transition-colors"
-                  >
-                    <span>
-                      <span className="block text-sm font-bold text-white">Become our partner</span>
-                      <span className="block text-xs text-white/55 mt-0.5">Earn 10% on every subscription you sell. Track referrals and earnings on your dashboard.</span>
-                    </span>
-                    <span className="text-xs font-bold text-amber-300 shrink-0">Partner program →</span>
-                  </button>
+                  {/* Partner / Referral Banner or Code Box */}
+                  {partnerStatus?.isPartner ? (
+                    <div className="w-full mb-6 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/15 via-black/40 to-transparent p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold border border-amber-400/30">
+                            ★ Active Partner
+                          </span>
+                          <h4 className="text-white font-bold text-base mt-2">Partner Dashboard Active</h4>
+                          <p className="text-white/60 text-xs mt-1">Your code: <strong className="text-amber-300 font-mono tracking-wider">{partnerStatus.partner?.code}</strong> · Commission rate: {partnerStatus.partner?.commissionRate}%</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLocation("/partner-program")}
+                          className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs rounded-xl shadow-lg shadow-amber-900/20 transition-all self-start sm:self-auto shrink-0"
+                        >
+                          Open Dashboard →
+                        </button>
+                      </div>
+                    </div>
+                  ) : partnerStatus?.referral?.appliedCode ? (
+                    <div className="w-full mb-6 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                          <Check className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-emerald-400">Referred by Partner</p>
+                          <p className="text-sm font-bold text-white tracking-wider font-mono">{partnerStatus.referral.appliedCode}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setLocation("/partner-program")}
+                        className="text-xs font-bold text-amber-300 hover:underline self-start sm:self-auto"
+                      >
+                        Want to earn too? Become a partner →
+                      </button>
+                    </div>
+                  ) : partnerStatus?.referral?.canApplyCode ? (
+                    <div className="w-full mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-amber-400" /> Have a Partner Referral Code?
+                          </h4>
+                          <p className="text-white/50 text-xs mt-1">
+                            Enter your friend or creator's code within 7 days of signing up to link your account.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLocation("/partner-program")}
+                          className="text-xs font-bold text-amber-300 hover:underline self-start sm:self-auto shrink-0"
+                        >
+                          Become a partner →
+                        </button>
+                      </div>
+                      <div className="flex gap-2 max-w-md">
+                        <input
+                          type="text"
+                          value={manualPartnerCode}
+                          onChange={(e) => setManualPartnerCode(e.target.value.toUpperCase())}
+                          placeholder="ENTER PARTNER CODE"
+                          className="flex-1 bg-black/50 border border-white/15 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-white focus:outline-none focus:border-amber-400"
+                        />
+                        <button
+                          type="button"
+                          disabled={!manualPartnerCode.trim() || partnerApplyLoading}
+                          onClick={async () => {
+                            setPartnerApplyLoading(true);
+                            try {
+                              await applyReferralMutation.mutateAsync(manualPartnerCode.trim().toUpperCase());
+                              setToast("Referral code applied successfully!");
+                              setManualPartnerCode("");
+                              refetchPartnerStatus();
+                            } catch (err: any) {
+                              setToast(err?.message || "Failed to apply referral code");
+                            } finally {
+                              setPartnerApplyLoading(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shrink-0"
+                        >
+                          {partnerApplyLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          Apply Code
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/partner-program")}
+                      className="w-full mb-6 flex items-center justify-between gap-4 rounded-2xl border border-amber-400/25 bg-gradient-to-r from-amber-500/15 to-transparent px-5 py-4 text-left hover:border-amber-400/50 transition-colors"
+                    >
+                      <span>
+                        <span className="block text-sm font-bold text-white">Become our partner</span>
+                        <span className="block text-xs text-white/55 mt-0.5">Earn 10% on every subscription you sell. Track referrals and earnings on your dashboard.</span>
+                      </span>
+                      <span className="text-xs font-bold text-amber-300 shrink-0">Partner program →</span>
+                    </button>
+                  )}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                     {[
                       { icon: <Film className="w-4 h-4 text-rose-400" />, label: "History", value: continueWatching.length, onClick: undefined },

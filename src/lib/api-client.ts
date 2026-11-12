@@ -3185,7 +3185,7 @@ export const useGetTransactions = () => {
 };
 
 export const loginClient = async (data: { email: string; password: string }) => { return api('/app/auth/login', { method: 'POST', body: JSON.stringify(data) }); };
-export const registerClient = async (data: { email: string; password: string; name: string; phone?: string }) => { return api('/app/auth/register', { method: 'POST', body: JSON.stringify(data) }); };
+export const registerClient = async (data: { email: string; password: string; name: string; phone?: string; referralCode?: string }) => { return api('/app/auth/register', { method: 'POST', body: JSON.stringify(data) }); };
 
 export const sendOtpClient = async (mobileNumber: string) => {
   const response = await api('/app/auth/send-otp', {
@@ -3216,6 +3216,7 @@ export const verifyOtpClient = async (opts: {
   name?: string;
   deviceId?: string;
   deviceName?: string;
+  referralCode?: string;
 }) => {
   return api('/app/auth/verify-otp', {
     method: 'POST',
@@ -3226,6 +3227,7 @@ export const verifyOtpClient = async (opts: {
       ...(opts.name ? { name: opts.name } : {}),
       ...(opts.deviceId ? { deviceId: opts.deviceId } : {}),
       ...(opts.deviceName ? { deviceName: opts.deviceName } : {}),
+      ...(opts.referralCode ? { referralCode: opts.referralCode } : {}),
     }),
   });
 };

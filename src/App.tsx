@@ -12,6 +12,7 @@ import { Layout } from "@/components/layout";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { SettingsProvider, useSettings } from "@/contexts/SettingsContext";
 import { useGetMe } from "@/lib/api-client";
+import { useToast } from "@/hooks/use-toast";
 
 // Helper to convert hex to HSL
 function hexToHSL(hex: string): { h: number; s: number; l: number } {
@@ -411,13 +412,25 @@ function PublicOrAdminFallback() {
 
 /** Partner program: remember ?ref=CODE and attach it once the visitor is signed in. */
 function useReferralCapture() {
+  const [location] = useLocation();
+  const { toast } = useToast();
+
   useEffect(() => {
-    captureReferralFromUrl();
+    try {
+      const code = new URLSearchParams(window.location.search).get("ref");
+      if (code && /^[A-Za-z0-9]{3,20}$/.test(code)) {
+        captureReferralFromUrl();
+        toast({
+          title: "Partner Referral Detected",
+          description: `Code ${code.toUpperCase()} has been saved and will link your account when you sign in or subscribe.`,
+        });
+      }
+    } catch {}
     attachStoredReferral();
     const onUser = () => attachStoredReferral();
     window.addEventListener("user-updated", onUser);
     return () => window.removeEventListener("user-updated", onUser);
-  }, []);
+  }, [location]);
 }
 
 function Router() {
