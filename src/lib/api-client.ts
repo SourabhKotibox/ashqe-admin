@@ -4000,6 +4000,7 @@ export const verifySubscriptionRazorpayPayment = async (data: {
   razorpay_signature: string;
   planId: string;
   userId?: string;
+  partnerCode?: string;
 }) => {
   return api('/app/subscription/razorpay/verify', {
     method: 'POST',

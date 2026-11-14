@@ -26,7 +26,6 @@ import { WebsiteReviews } from "@/components/WebsiteReviews";
 import { LandscapeCard, PortraitCard } from "@/components/ContentCard";
 import Hls from "hls.js";
 import SubscriptionPlansModal from "@/components/SubscriptionPlansModal";
-import { getStoredReferral, attachStoredReferral } from "@/lib/partner-api";
 
 /* ─── TYPES ─── */
 interface ContentItem {
@@ -1403,10 +1402,6 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const storedRef = getStoredReferral() || "";
-  const [referralCode, setReferralCode] = useState(storedRef);
-  const [showReferralInput, setShowReferralInput] = useState(!!storedRef);
-
   const { settings } = useSettings();
   const { resolvedTheme } = useTheme();
 
@@ -1454,17 +1449,6 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
     };
     localStorage.setItem("appUser", JSON.stringify(loggedIn));
     localStorage.setItem("user", JSON.stringify(loggedIn));
-
-    // Ensure referral is attached if a code was provided or stored
-    const finalCode = referralCode.trim().toUpperCase() || storedRef;
-    if (finalCode) {
-      try {
-        localStorage.setItem("ashqe_partner_ref", JSON.stringify({ code: finalCode, at: Date.now() }));
-        attachStoredReferral();
-      } catch {}
-    } else {
-      attachStoredReferral();
-    }
 
     const next = new URLSearchParams(window.location.search).get("next");
     if (next && next.startsWith("/") && !next.startsWith("//")) window.location.href = next;
@@ -1521,7 +1505,6 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
       name: name.trim() || undefined,
       deviceId: typeof window !== "undefined" ? `web-${navigator.userAgent.slice(0, 40)}` : "web",
       deviceName: "Website",
-      referralCode: referralCode.trim().toUpperCase() || undefined,
     });
     persistSession(res, name.trim() || mobile);
   };
@@ -1550,7 +1533,6 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
           password,
           name,
           phone: phone || undefined,
-          referralCode: referralCode.trim().toUpperCase() || undefined,
         });
         persistSession({ ...res, name }, name);
       }
@@ -1689,44 +1671,6 @@ export function SignInModal({ onClose }: { onClose: () => void }) {
                 </div>
               </>
             )}
-
-            {/* Partner / Referral Code */}
-            <div className="pt-1">
-              {!showReferralInput ? (
-                <button
-                  type="button"
-                  onClick={() => setShowReferralInput(true)}
-                  className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors text-left"
-                >
-                  <span>+ Have a partner or referral code?</span>
-                </button>
-              ) : (
-                <div className="bg-zinc-900/90 border border-zinc-800 rounded-xl p-3 space-y-1.5 animate-in fade-in">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-white/80 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Partner Referral Code
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => { setShowReferralInput(false); setReferralCode(""); }}
-                      className="text-[10px] text-white/40 hover:text-white"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={referralCode}
-                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                    placeholder="Enter partner code (e.g. ASHQE123)"
-                    className="w-full bg-black/60 border border-zinc-700 text-white placeholder:text-white/40 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider focus:outline-none focus:border-amber-400"
-                  />
-                  {storedRef && storedRef === referralCode && (
-                    <p className="text-[10px] text-emerald-400 font-medium">Applied automatically from partner link</p>
-                  )}
-                </div>
-              )}
-            </div>
 
             <button disabled={loading || sendingOtp} type="submit" className="w-full mt-2 py-3 bg-amber-400 hover:bg-amber-500 text-black font-bold rounded-xl transition-all text-xs flex justify-center items-center h-[44px] shadow-lg shadow-amber-900/20 hover:-translate-y-0.5 active:translate-y-0">
               {loading || sendingOtp ? <Loader2 className="w-5 h-5 animate-spin" /> : (

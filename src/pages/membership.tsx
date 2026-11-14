@@ -190,7 +190,9 @@ export default function MembershipPage() {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               planId: selectedPlanId!,
+              partnerCode: appliedCode || undefined,
             });
+            try { localStorage.removeItem("ashqe_partner_ref"); } catch {}
             showToast("🎉 Subscription activated! Welcome to VIP!", "success");
             persistAppSessionUser({
               subscriptionPlan: verifyRes?.subscriptionPlan || selectedPlan?.name || "premium",

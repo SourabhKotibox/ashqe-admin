@@ -50,7 +50,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
   const [user, setUser] = useState<any>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
-  // Partner / referral code support
+  // Partner / referral code support (optional)
   const [partnerCode, setPartnerCode] = useState<string>(() => getStoredReferral() || "");
   const [appliedCode, setAppliedCode] = useState<string>(() => getStoredReferral() || "");
   const [quote, setQuote] = useState<any>(null);
@@ -74,12 +74,11 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
-  const plans = (plansData?.data || []).filter((p: any) => p.name !== "free");
+  const rawPlans = Array.isArray(plansData) ? plansData : (plansData?.data || plansData?.plans || []);
+  const plans = rawPlans.filter((p: any) => (p?.name || "").toLowerCase() !== "free");
 
   useEffect(() => {
-    if (!appliedCode || !plans.length) {
+    if (!isOpen || !appliedCode || !plans.length) {
       setQuote(null);
       return;
     }
@@ -96,7 +95,9 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
     return () => {
       cancelled = true;
     };
-  }, [appliedCode, plans.length]);
+  }, [isOpen, appliedCode, plans.length]);
+
+  if (!isOpen) return null;
 
   const handleSubscribe = async (plan: any) => {
     if (!user) {
@@ -109,17 +110,20 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
       return;
     }
 
+    const effectiveCode = appliedCode?.trim() || undefined;
+
     try {
       setSelectedPlanId(plan.id || plan._id);
 
       const orderData = await createOrderMutation.mutateAsync({
         planId: plan.id || plan._id,
         userId: user.id || user._id,
-        partnerCode: appliedCode || undefined,
+        partnerCode: effectiveCode,
       });
 
       if (orderData.isFree) {
         persistSubscribedUser(user, plan.name);
+        try { localStorage.removeItem("ashqe_partner_ref"); } catch {}
         toast({
           title: "Subscription Successful",
           description: `Successfully subscribed to ${plan.name}! Full library unlocked.`,
@@ -150,6 +154,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
               razorpay_signature: response.razorpay_signature,
               planId: plan.id || plan._id,
               userId: user.id || user._id,
+              partnerCode: effectiveCode,
             });
 
             if (verifyRes?.accessToken) {
@@ -157,9 +162,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
               localStorage.setItem("accessToken", verifyRes.accessToken);
             }
 
-            if (appliedCode) {
-              try { localStorage.removeItem("ashqe_partner_ref"); } catch {}
-            }
+            try { localStorage.removeItem("ashqe_partner_ref"); } catch {}
 
             persistSubscribedUser(
               user,
@@ -214,7 +217,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
 
       {/* Modal Container */}
       <div 
-        className="relative w-full max-w-4xl bg-[#09090e] border border-zinc-800 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(229,9,20,0.15)] transition-all transform duration-300 animate-in fade-in zoom-in-95"
+        className="relative z-10 w-full max-w-4xl bg-[#09090e] border border-zinc-800 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(229,9,20,0.15)] transition-all transform duration-300 animate-in fade-in zoom-in-95 text-white"
         style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}
       >
         {/* Header */}
@@ -242,7 +245,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="text-xs font-bold text-white">Have a Partner or Referral Code?</span>
+                <span className="text-xs font-bold text-white">Have a Partner / Referral Code? (Optional)</span>
               </div>
               <div className="flex items-center gap-2">
                 <input

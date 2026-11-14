@@ -169,7 +169,7 @@ import MembershipPage from "@/pages/membership";
 import PartnerProgramPage from "@/pages/partner-program";
 import AdminPartnersPage from "@/pages/admin-partners";
 import AdminPartnerDetailPage from "@/pages/admin-partner-detail";
-import { captureReferralFromUrl, attachStoredReferral } from "@/lib/partner-api";
+import { captureReferralFromUrl } from "@/lib/partner-api";
 import PublicPagePage from "@/pages/public-page";
 import WishlistPage from "@/pages/wishlist";
 import HelpSupportPage from "@/pages/help-support";
@@ -422,14 +422,10 @@ function useReferralCapture() {
         captureReferralFromUrl();
         toast({
           title: "Partner Referral Detected",
-          description: `Code ${code.toUpperCase()} has been saved and will link your account when you sign in or subscribe.`,
+          description: `Code ${code.toUpperCase()} has been saved and will be applied when you subscribe.`,
         });
       }
     } catch {}
-    attachStoredReferral();
-    const onUser = () => attachStoredReferral();
-    window.addEventListener("user-updated", onUser);
-    return () => window.removeEventListener("user-updated", onUser);
   }, [location]);
 }
 
