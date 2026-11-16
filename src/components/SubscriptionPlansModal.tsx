@@ -271,7 +271,7 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
               </div>
             </div>
             {quote?.message && (
-              <p className={`text-xs mt-2.5 font-semibold ${quote.discountAmount > 0 ? "text-emerald-400" : "text-zinc-400"}`}>
+              <p className={`text-xs mt-2.5 font-semibold ${quote.code ? "text-emerald-400" : "text-zinc-400"}`}>
                 {quote.message}
               </p>
             )}
@@ -339,7 +339,14 @@ export default function SubscriptionPlansModal({ isOpen, onClose, onSubscribed }
                             </span>
                           </div>
                         ) : (
-                          <span className="text-3xl font-black text-white">{settings?.currencyPosition === 'before' ? (settings?.currencySymbol || '₹') + (plan.totalPrice ?? plan.price) : (plan.totalPrice ?? plan.price) + ' ' + (settings?.currencySymbol || '₹')}</span>
+                          <div className="flex flex-col">
+                            <span className="text-3xl font-black text-white">{settings?.currencyPosition === 'before' ? (settings?.currencySymbol || '₹') + (plan.totalPrice ?? plan.price) : (plan.totalPrice ?? plan.price) + ' ' + (settings?.currencySymbol || '₹')}</span>
+                            {quote?.code && (
+                              <span className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                                Partner code: {quote.code}
+                              </span>
+                            )}
+                          </div>
                         )}
                         <span className="text-sm font-medium text-white/70">/ {plan.duration || 'month'}</span>
                       </div>

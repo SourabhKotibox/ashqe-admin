@@ -273,9 +273,16 @@ export function PayoutsTab({ partnerId }: { partnerId?: string }) {
   const [sel, setSel] = useState<any>(null);
   const [ref, setRef] = useState("");
   const [note, setNote] = useState("");
+  const [procMethod, setProcMethod] = useState("phonepe");
   const submit = async (action: "paid" | "reject") => {
-    try { await process.mutateAsync({ id: sel._id, action, reference: ref, note }); toast({ title: action === "paid" ? "Payout marked paid" : "Payout rejected" }); setSel(null); }
-    catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
+    try {
+      const finalRef = ref.trim() || (procMethod === "cash" ? "Paid in Cash" : "Online Transfer");
+      await process.mutateAsync({ id: sel._id, action, reference: finalRef, paymentMethod: procMethod, note });
+      toast({ title: action === "paid" ? `Payout marked paid via ${procMethod.toUpperCase()}` : "Payout rejected" });
+      setSel(null);
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message, variant: "destructive" });
+    }
   };
   return (
     <div className="space-y-3">
@@ -323,12 +330,40 @@ export function PayoutsTab({ partnerId }: { partnerId?: string }) {
           </div>
           <p className="text-sm text-muted-foreground">Transfer the amount manually (UPI / NEFT), then record the UTR / transaction reference here.</p>
           <div className="space-y-3">
-            <div><Label>Transaction reference (UTR) *</Label><Input value={ref} onChange={(e) => setRef(e.target.value)} /></div>
+            <div>
+              <Label>Payment Method *</Label>
+              <Select value={procMethod} onValueChange={(val) => {
+                setProcMethod(val);
+                if (val === "cash" && !ref) setRef("Paid in Cash");
+                else if (val === "phonepe" && !ref) setRef("PhonePe Payment");
+                else if (val === "gpay" && !ref) setRef("GPay Payment");
+                else if (val === "paytm" && !ref) setRef("Paytm Payment");
+              }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="phonepe">📱 PhonePe</SelectItem>
+                  <SelectItem value="cash">💵 Cash (Hand-to-Hand / Offline)</SelectItem>
+                  <SelectItem value="gpay">📱 Google Pay (GPay)</SelectItem>
+                  <SelectItem value="paytm">📱 Paytm</SelectItem>
+                  <SelectItem value="upi">⚡ UPI</SelectItem>
+                  <SelectItem value="bank">🏦 Bank Account (NEFT / IMPS)</SelectItem>
+                  <SelectItem value="other">📝 Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{procMethod === "cash" ? "Receipt Note / Reference" : "Transaction Reference (UTR) *"}</Label>
+              <Input
+                value={ref}
+                onChange={(e) => setRef(e.target.value)}
+                placeholder={procMethod === "cash" ? "e.g. Paid in Cash at office" : "e.g. PhonePe UTR / Txn ID"}
+              />
+            </div>
             <div><Label>Note</Label><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional; required context if rejecting" /></div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" className="text-rose-500" disabled={process.isPending} onClick={() => submit("reject")}>Reject</Button>
-            <Button disabled={process.isPending || !ref.trim()} className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => submit("paid")}>Mark as paid</Button>
+            <Button disabled={process.isPending || (!ref.trim() && procMethod !== "cash")} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold" onClick={() => submit("paid")}>Mark as paid</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -397,7 +397,7 @@ export default function MembershipPage() {
                           placeholder="Enter code" className="flex-1 h-9 rounded-lg bg-background border border-border/60 px-3 text-sm uppercase" />
                         <button type="button" onClick={() => setAppliedCode(partnerCode.trim())} className="h-9 px-3 rounded-lg bg-primary/15 text-primary text-xs font-bold">Apply</button>
                       </div>
-                      {quote?.message && <p className={`text-[11px] mt-1 ${hasDiscount ? "text-emerald-500" : "text-muted-foreground"}`}>{quote.message}</p>}
+                      {quote?.message && <p className={`text-[11px] mt-1 ${quote.code ? "text-emerald-500 font-semibold" : "text-muted-foreground"}`}>{quote.message}</p>}
                     </div>
                   )}
                   {hasDiscount && (

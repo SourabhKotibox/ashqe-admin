@@ -162,6 +162,8 @@ export const useReverseCommission = () =>
   useAdminMutation(({ id, reason }) => apiRequest(`/api/partners/commissions/${id}/reverse`, { method: "POST", body: JSON.stringify({ reason }) }));
 export const useProcessPayout = () =>
   useAdminMutation(({ id, ...body }) => apiRequest(`/api/partners/payouts/${id}`, { method: "PATCH", body: JSON.stringify(body) }));
+export const useCreateDirectPayout = () =>
+  useAdminMutation((body) => apiRequest("/api/partners/payouts/direct", { method: "POST", body: JSON.stringify(body) }));
 export const useUpdatePartnerSettings = () =>
   useAdminMutation((body) => apiRequest("/api/partners/settings", { method: "PUT", body: JSON.stringify(body) }));
 export const useAttributeUser = () =>
