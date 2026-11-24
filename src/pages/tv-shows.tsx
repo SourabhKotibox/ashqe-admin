@@ -22,6 +22,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
+  useGetMe,
   useGetTVShows,
   useDeleteTVShow,
   useToggleTVShowFeatured,
@@ -31,6 +32,7 @@ import {
   useGetSubscriptionPlans,
 } from "@/lib/api-client";
 import { getImageUrl } from "@/lib/api-client";
+import { SubmitForReviewButton } from "@/components/submit-for-review";
 
 type TVShowRow = {
   id: string;
@@ -45,6 +47,7 @@ type TVShowRow = {
   status: string;
   featured: boolean;
   trending: boolean;
+  rejectionReason?: string;
 };
 
 function planNameToKey(name: string): string {
@@ -139,6 +142,10 @@ export default function TvShowsPage() {
   });
 
   const tvShows = tvShowsData?.data || [];
+
+  const { data: me } = useGetMe();
+  const isCreator = me?.role === "influencer";
+  const canDelete = isCreator ? !!me?.modulePermissions?.tvShows?.canDelete : true;
 
   const deleteMutation = useDeleteTVShow();
   const toggleFeaturedMutation = useToggleTVShowFeatured();
@@ -282,6 +289,7 @@ export default function TvShowsPage() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
+        {!isCreator && <>
         <Select value={bulkAction} onValueChange={setBulkAction}>
           <SelectTrigger className="w-36 bg-card border-border text-foreground h-10 rounded-lg text-sm">
             <SelectValue />
@@ -299,6 +307,7 @@ export default function TvShowsPage() {
         >
           Apply
         </Button>
+        </>}
 
 
         <div className="flex-1" />
@@ -385,6 +394,7 @@ export default function TvShowsPage() {
               </Select>
             </div>
 
+            {!isCreator && <>
             {/* Featured Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Featured</label>
@@ -414,6 +424,7 @@ export default function TvShowsPage() {
                 </SelectContent>
               </Select>
             </div>
+            </>}
           </div>
           {isAnyFilterActive && (
             <div className="flex justify-end">
@@ -453,15 +464,15 @@ export default function TvShowsPage() {
                 <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Plan</TableHead>
                 <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Language</TableHead>
                 <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Status</TableHead>
-                <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Featured</TableHead>
-                <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Trending</TableHead>
+                {!isCreator && <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Featured</TableHead>}
+                {!isCreator && <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Trending</TableHead>}
                 <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-foreground/65 py-14">
+                  <TableCell colSpan={isCreator ? 8 : 10} className="text-center text-foreground/65 py-14">
                     No tvShows yet
                   </TableCell>
                 </TableRow>
@@ -509,29 +520,44 @@ export default function TvShowsPage() {
                       </TableCell>
                       <TableCell className="text-foreground/70 text-sm">{tvShow.languages[0]?.name || '-'}</TableCell>
                       <TableCell>
-                        <button
-                          onClick={() => handleToggleStatus(tvShow.id, tvShow.status)}
-                          className="text-foreground/70 hover:text-foreground"
-                        >
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${statusBadge.className}`}>
-                            {statusBadge.label}
-                          </span>
-                        </button>
+                        {isCreator ? (
+                          <div>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${statusBadge.className}`}>
+                              {tvShow.status === "moderation" ? "In Review" : statusBadge.label}
+                            </span>
+                            {tvShow.status === "rejected" && tvShow.rejectionReason && (
+                              <p className="text-[11px] text-rose-400 mt-1 max-w-[180px]">{tvShow.rejectionReason}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleStatus(tvShow.id, tvShow.status)}
+                            className="text-foreground/70 hover:text-foreground"
+                          >
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${statusBadge.className}`}>
+                              {statusBadge.label}
+                            </span>
+                          </button>
+                        )}
                       </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={tvShow.featured}
-                          onCheckedChange={() => handleToggleFeatured(tvShow.id)}
-                          className="data-[state=checked]:bg-primary"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={tvShow.trending}
-                          onCheckedChange={() => handleToggleTrending(tvShow.id)}
-                          className="data-[state=checked]:bg-primary"
-                        />
-                      </TableCell>
+                      {!isCreator && (
+                        <TableCell>
+                          <Switch
+                            checked={tvShow.featured}
+                            onCheckedChange={() => handleToggleFeatured(tvShow.id)}
+                            className="data-[state=checked]:bg-primary"
+                          />
+                        </TableCell>
+                      )}
+                      {!isCreator && (
+                        <TableCell>
+                          <Switch
+                            checked={tvShow.trending}
+                            onCheckedChange={() => handleToggleTrending(tvShow.id)}
+                            className="data-[state=checked]:bg-primary"
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -547,13 +573,24 @@ export default function TvShowsPage() {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>
-                          <button
-                            onClick={() => setConfirmDelete(tvShow)}
-                            className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/15 text-primary hover:bg-primary/80/30 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {isCreator && (
+                            <SubmitForReviewButton
+                              compact
+                              id={tvShow.id}
+                              kind="tv"
+                              status={tvShow.status}
+                              blockReason={tvShow.status === "processing" ? "Video is still processing. Submit once HLS is ready." : undefined}
+                            />
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => setConfirmDelete(tvShow)}
+                              className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/15 text-primary hover:bg-primary/80/30 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

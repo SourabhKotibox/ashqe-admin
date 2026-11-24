@@ -95,7 +95,7 @@ function ThemeApplier() {
     // Identify frontend routes
     const frontendPrefixes = [
       "/membership", "/account", "/wishlist", 
-      "/help-support", "/browse", "/partner-program",
+      "/help-support", "/browse", "/partner-program", "/creator-program",
       "/movie", "/watch", "/page", "/login", "/register",
       "/tv-shows-browse", "/show"
     ];
@@ -167,6 +167,9 @@ import PublicAuthPage from "@/pages/public-auth";
 import UserProfilePage from "@/pages/user-profile";
 import MembershipPage from "@/pages/membership";
 import PartnerProgramPage from "@/pages/partner-program";
+import CreatorProgramPage from "@/pages/creator-program";
+import CreatorApplicationsPage from "@/pages/creator-applications";
+import { isCreatorConsolePath, isInfluencerRole } from "@/lib/creator-access";
 import AdminPartnersPage from "@/pages/admin-partners";
 import AdminPartnerDetailPage from "@/pages/admin-partner-detail";
 import { captureReferralFromUrl } from "@/lib/partner-api";
@@ -204,6 +207,7 @@ const routePermissions: Record<string, string | null> = {
   "/app-management": null,
   "/home-sections": "categories",
   "/influencers": "influencers",
+  "/creator-applications": "influencers",
   "/approvals": "movies",
   "/users": "subscriptions",
   "/languages": "languages",
@@ -239,6 +243,7 @@ const routePermissions: Record<string, string | null> = {
 
 const hasPermissionForRoute = (path: string, user: any): boolean => {
   if (user?.role === "superadmin") return true;
+  if (isInfluencerRole(user) && !isCreatorConsolePath(path)) return false;
   
   // Find matching route (check exact first, then prefixes)
   let permission: string | null = null;
@@ -378,6 +383,7 @@ function AdminRoutes() {
               <Route path="/reviews" component={Reviews} />
               <Route path="/new-hot" component={NewHotManagement} />
               <Route path="/influencers" component={InfluencersPage} />
+              <Route path="/creator-applications" component={CreatorApplicationsPage} />
               <Route path="/approvals" component={ApprovalsPage} />
               <Route path="/revenue-analytics" component={RevenueAnalyticsPage} />
         <Route component={NotFound} />
@@ -392,7 +398,7 @@ function isPublicFrontendPath(path: string) {
   const prefixes = [
     "/login", "/register", "/movie", "/watch", "/browse",
     "/tv-shows-browse", "/show", "/account", "/wishlist",
-    "/help-support", "/page", "/membership", "/drama", "/partner-program",
+    "/help-support", "/page", "/membership", "/drama", "/partner-program", "/creator-program",
   ];
   return prefixes.some((p) => path === p || path.startsWith(`${p}/`));
 }
@@ -465,6 +471,7 @@ function Router() {
       <Route path="/page/:slug" component={PublicPagePage} />
       <Route path="/membership" component={MembershipPage} />
       <Route path="/partner-program" component={PartnerProgramPage} />
+      <Route path="/creator-program" component={CreatorProgramPage} />
       
       {/* Admin catch-all route (must be at the end) */}
       <Route>

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { mustChangePasswordFromAuthPayload, writeMustChangePasswordFlag } from "@/lib/creator-access";
 
 // Production: same-origin `/api/...` (avoids wrong VITE_API_URL / double host).
 // Local: set VITE_API_URL=http://localhost:3000 in .env.local
@@ -314,6 +315,7 @@ export const useLogin = () => {
       if (data.refreshToken) {
         localStorage.setItem("adminRefreshToken", data.refreshToken);
       }
+      writeMustChangePasswordFlag(mustChangePasswordFromAuthPayload(data));
       // Don't wipe the whole cache — only drop auth/user so dashboard loads faster
       queryClient.removeQueries({ queryKey: ["me"] });
       queryClient.invalidateQueries({ queryKey: ["me"] });
@@ -2300,6 +2302,26 @@ export const useRejectMovie = () => {
   });
 };
 
+export const submitMovieForReview = async (id: string) => {
+  return api(`/movies/item/${id}/submit-review`, {
+    method: 'POST',
+    body: JSON.stringify({ copyrightAttested: true }),
+  });
+};
+
+export const useSubmitMovieReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation<any, Error, string>({
+    mutationFn: submitMovieForReview,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['movies'] });
+      queryClient.invalidateQueries({ queryKey: ['movie'] });
+      queryClient.invalidateQueries({ queryKey: ['creator-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+    },
+  });
+};
+
 export const useToggleMovieTrending = () => {
   const queryClient = useQueryClient();
   return useMutation<any, Error, string>({
@@ -2446,8 +2468,14 @@ export const useUpdateProfile = () => {
 };
 
 export const useUpdatePassword = () => {
+  const queryClient = useQueryClient();
   return useMutation<any, Error, { currentPassword: string; newPassword: string }>({
     mutationFn: updatePassword,
+    onSuccess: () => {
+      writeMustChangePasswordFlag(false);
+      queryClient.setQueryData(["me"], (old: any) => (old ? { ...old, mustChangePassword: false } : old));
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
   });
 };
 
@@ -4270,6 +4298,73 @@ export const useToggleTVShowTrending = () => {
     mutationFn: toggleTVShowTrending,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
+    },
+  });
+};
+
+export const getPendingTvApprovals = async (options?: { page?: number; limit?: number }) => {
+  const params = new URLSearchParams();
+  if (options?.page) params.append('page', options.page.toString());
+  if (options?.limit) params.append('limit', options.limit.toString());
+  return api(`/tv-shows/pending-approvals?${params.toString()}`);
+};
+
+export const useGetPendingTvApprovals = (options?: { page?: number; limit?: number }) => {
+  return useQuery({
+    queryKey: ['pending-tv-approvals', options],
+    queryFn: () => getPendingTvApprovals(options),
+  });
+};
+
+export const approveTvShow = async (id: string) => {
+  return api(`/tv-shows/item/${id}/approve`, { method: 'POST' });
+};
+
+export const rejectTvShow = async (id: string, reason: string) => {
+  return api(`/tv-shows/item/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+};
+
+export const useApproveTvShow = () => {
+  const queryClient = useQueryClient();
+  return useMutation<any, Error, string>({
+    mutationFn: approveTvShow,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-tv-approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
+    },
+  });
+};
+
+export const useRejectTvShow = () => {
+  const queryClient = useQueryClient();
+  return useMutation<any, Error, { id: string; reason: string }>({
+    mutationFn: ({ id, reason }) => rejectTvShow(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-tv-approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
+    },
+  });
+};
+
+export const submitTvShowForReview = async (id: string) => {
+  return api(`/tv-shows/item/${id}/submit-review`, {
+    method: 'POST',
+    body: JSON.stringify({ copyrightAttested: true }),
+  });
+};
+
+export const useSubmitTvShowReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation<any, Error, string>({
+    mutationFn: submitTvShowForReview,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tv-shows'] });
+      queryClient.invalidateQueries({ queryKey: ['tv-show'] });
+      queryClient.invalidateQueries({ queryKey: ['creator-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-tv-approvals'] });
     },
   });
 };

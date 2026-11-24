@@ -22,6 +22,8 @@ interface VideoPlayerProps {
   defaultOrientation?: "landscape" | "portrait";
   contentId?: string;
   videoQualities?: VideoQuality[];
+  /** Inline reviewer player: no ads, no fullscreen takeover. */
+  embedded?: boolean;
 }
 
 function formatTime(sec: number): string {
@@ -45,6 +47,7 @@ export default function VideoPlayer({
   defaultOrientation = "landscape",
   contentId,
   videoQualities,
+  embedded = false,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,6 +100,7 @@ export default function VideoPlayer({
 
   // Initialize: check resume and start pre-roll
   useEffect(() => {
+    if (embedded) return;
     if (contentId) {
       try {
         const saved = localStorage.getItem(PROGRESS_KEY(contentId));
@@ -115,7 +119,7 @@ export default function VideoPlayer({
     }
     // Start pre-roll ad if no resume prompt
     startAd('preroll');
-  }, [contentId, startAd]);
+  }, [contentId, startAd, embedded]);
 
   const handleResume = (resume: boolean) => {
     setShowResumePrompt(false);
@@ -189,6 +193,7 @@ export default function VideoPlayer({
   }, [resetHideTimer, adIsActive]);
 
   useEffect(() => {
+    if (embedded) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === "INPUT") return;
       switch (e.key) {
@@ -203,7 +208,7 @@ export default function VideoPlayer({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePlay, skip, volume]);
+  }, [togglePlay, skip, volume, embedded]);
 
   const toggleMute = () => {
     const v = videoRef.current;
@@ -299,13 +304,15 @@ export default function VideoPlayer({
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      className={embedded
+        ? "relative w-full aspect-video bg-black rounded-xl overflow-hidden"
+        : "fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm"}
+      onClick={(e) => { if (!embedded && e.target === e.currentTarget) onClose?.(); }}
     >
       <div
         ref={containerRef}
-        className="relative bg-black overflow-hidden shadow-2xl"
-        style={{ width: maxWidth, aspectRatio, maxHeight: "100vh" }}
+        className={embedded ? "absolute inset-0 bg-black" : "relative bg-black overflow-hidden shadow-2xl"}
+        style={embedded ? undefined : { width: maxWidth, aspectRatio, maxHeight: "100vh" }}
         onMouseMove={resetHideTimer}
         onClick={(e) => { if (e.currentTarget === e.target) togglePlay(); }}
       >
@@ -406,12 +413,14 @@ export default function VideoPlayer({
               {title && <p className="text-foreground font-bold text-base truncate drop-shadow">{title}</p>}
               {subtitle && <p className="text-foreground/70 text-xs truncate">{subtitle}</p>}
             </div>
-            <button
-              onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 text-white transition-colors ml-3 flex-shrink-0"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {!embedded && (
+              <button
+                onClick={onClose}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 text-white transition-colors ml-3 flex-shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           {/* Center Play Button */}

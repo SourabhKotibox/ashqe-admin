@@ -826,6 +826,17 @@ export default function UserProfilePage() {
                       <span className="text-xs font-bold text-amber-300 shrink-0">Partner program →</span>
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setLocation("/creator-program")}
+                    className="w-full flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-left hover:border-amber-400/40 transition-colors"
+                  >
+                    <span>
+                      <span className="block text-sm font-bold text-white">Creator Program</span>
+                      <span className="block text-xs text-white/55 mt-0.5">Upload your own movies and web series. Separate from the partner referral program.</span>
+                    </span>
+                    <span className="text-xs font-bold text-amber-300 shrink-0">Apply →</span>
+                  </button>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                     {[
                       { icon: <Film className="w-4 h-4 text-rose-400" />, label: "History", value: continueWatching.length, onClick: undefined },

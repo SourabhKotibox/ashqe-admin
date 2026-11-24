@@ -22,6 +22,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
+  useGetMe,
   useGetMovies,
   useDeleteMovie,
   useToggleMovieFeatured,
@@ -30,6 +31,7 @@ import {
   useGetLanguagesList,
   useGetSubscriptionPlans,
 } from "@/lib/api-client";
+import { SubmitForReviewButton } from "@/components/submit-for-review";
 import { getImageUrl } from "@/lib/api-client";
 
 type MovieRow = {
@@ -45,6 +47,7 @@ type MovieRow = {
   status: string;
   featured: boolean;
   trending: boolean;
+  rejectionReason?: string;
 };
 
 function planNameToKey(name: string): string {
@@ -139,6 +142,10 @@ export default function MoviesPage() {
   });
 
   const movies = moviesData?.data || [];
+
+  const { data: me } = useGetMe();
+  const isCreator = me?.role === "influencer";
+  const canDelete = isCreator ? !!me?.modulePermissions?.movies?.canDelete : true;
 
   const deleteMutation = useDeleteMovie();
   const toggleFeaturedMutation = useToggleMovieFeatured();
@@ -282,6 +289,7 @@ export default function MoviesPage() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
+        {!isCreator && <>
         <Select value={bulkAction} onValueChange={setBulkAction}>
           <SelectTrigger className="w-36 bg-card border-border text-foreground h-10 rounded-lg text-sm">
             <SelectValue />
@@ -299,6 +307,7 @@ export default function MoviesPage() {
         >
           Apply
         </Button>
+        </>}
 
 
         <div className="flex-1" />
@@ -385,6 +394,7 @@ export default function MoviesPage() {
               </Select>
             </div>
 
+            {!isCreator && <>
             {/* Featured Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Featured</label>
@@ -414,6 +424,7 @@ export default function MoviesPage() {
                 </SelectContent>
               </Select>
             </div>
+            </>}
           </div>
           {isAnyFilterActive && (
             <div className="flex justify-end">
@@ -453,15 +464,15 @@ export default function MoviesPage() {
                 <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Plan</TableHead>
                 <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Language</TableHead>
                 <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Status</TableHead>
-                <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Featured</TableHead>
-                <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Trending</TableHead>
+                {!isCreator && <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Featured</TableHead>}
+                {!isCreator && <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Trending</TableHead>}
                 <TableHead className="text-foreground/70 font-semibold text-xs uppercase tracking-wide">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-foreground/65 py-14">
+                  <TableCell colSpan={isCreator ? 8 : 10} className="text-center text-foreground/65 py-14">
                     No movies yet
                   </TableCell>
                 </TableRow>
@@ -509,29 +520,44 @@ export default function MoviesPage() {
                       </TableCell>
                       <TableCell className="text-foreground/70 text-sm">{movie.languages[0]?.name || '-'}</TableCell>
                       <TableCell>
-                        <button
-                          onClick={() => handleToggleStatus(movie.id, movie.status)}
-                          className="text-foreground/70 hover:text-foreground"
-                        >
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${statusBadge.className}`}>
-                            {statusBadge.label}
-                          </span>
-                        </button>
+                        {isCreator ? (
+                          <div>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${statusBadge.className}`}>
+                              {movie.status === "moderation" ? "In Review" : statusBadge.label}
+                            </span>
+                            {movie.status === "rejected" && movie.rejectionReason && (
+                              <p className="text-[11px] text-rose-400 mt-1 max-w-[180px]">{movie.rejectionReason}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleStatus(movie.id, movie.status)}
+                            className="text-foreground/70 hover:text-foreground"
+                          >
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${statusBadge.className}`}>
+                              {statusBadge.label}
+                            </span>
+                          </button>
+                        )}
                       </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={movie.featured}
-                          onCheckedChange={() => handleToggleFeatured(movie.id)}
-                          className="data-[state=checked]:bg-primary"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={movie.trending}
-                          onCheckedChange={() => handleToggleTrending(movie.id)}
-                          className="data-[state=checked]:bg-primary"
-                        />
-                      </TableCell>
+                      {!isCreator && (
+                        <TableCell>
+                          <Switch
+                            checked={movie.featured}
+                            onCheckedChange={() => handleToggleFeatured(movie.id)}
+                            className="data-[state=checked]:bg-primary"
+                          />
+                        </TableCell>
+                      )}
+                      {!isCreator && (
+                        <TableCell>
+                          <Switch
+                            checked={movie.trending}
+                            onCheckedChange={() => handleToggleTrending(movie.id)}
+                            className="data-[state=checked]:bg-primary"
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -547,13 +573,24 @@ export default function MoviesPage() {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>
-                          <button
-                            onClick={() => setConfirmDelete(movie)}
-                            className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/15 text-primary hover:bg-primary/80/30 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {isCreator && (
+                            <SubmitForReviewButton
+                              compact
+                              id={movie.id}
+                              kind="movie"
+                              status={movie.status}
+                              blockReason={movie.status === "processing" ? "Video is still processing. Submit once HLS is ready." : undefined}
+                            />
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => setConfirmDelete(movie)}
+                              className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/15 text-primary hover:bg-primary/80/30 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

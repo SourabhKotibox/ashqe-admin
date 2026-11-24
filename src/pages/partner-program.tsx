@@ -76,6 +76,7 @@ export default function PartnerProgramPage() {
 
 /* ───────────── Landing / pitch ───────────── */
 function Landing({ onCta, ctaLabel, compact = false, rate = 10 }: { onCta?: () => void; ctaLabel?: string; compact?: boolean; rate?: number }) {
+  const [, setLocation] = useLocation();
   const [sales, setSales] = useState(50000);
   return (
     <div className="space-y-10">
@@ -94,6 +95,12 @@ function Landing({ onCta, ctaLabel, compact = false, rate = 10 }: { onCta?: () =
             <button onClick={onCta} className="mt-8 inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold">
               {ctaLabel} <ArrowRight className="w-4 h-4" />
             </button>
+          )}
+          {!compact && (
+            <p className="mt-4 text-sm text-white/45">
+              Want to upload your own films instead of referring subscribers?{" "}
+              <button type="button" onClick={() => setLocation("/creator-program")} className="text-amber-300 font-semibold hover:underline">Creator Program</button>
+            </p>
           )}
         </div>
       </section>

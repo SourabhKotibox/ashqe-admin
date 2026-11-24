@@ -1,5 +1,7 @@
 
 import { useState, useEffect } from "react";
+import { isCreatorConsolePath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
+import { ForcePasswordChange } from "@/components/force-password-change";
 import { Link, useLocation } from "wouter";
 import {
   useGetMe,
@@ -89,6 +91,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       items: [
         { href: "/users", label: t('nav.users'), icon: Users, permission: "subscriptions" },
         { href: "/influencers", label: "Role-Based Access", icon: Shield, permission: "influencers" },
+        { href: "/creator-applications", label: "Creator Applications", icon: Clapperboard, permission: "influencers" },
         { href: "/approvals", label: "Approvals", icon: CheckCircle, permission: "movies" },
       ],
     },
@@ -189,7 +192,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const hasPermission = (permission: string | null): boolean => {
+  useEffect(() => {
+    if (!user) return;
+    if (user.mustChangePassword === true) writeMustChangePasswordFlag(true);
+    if (user.mustChangePassword === false) writeMustChangePasswordFlag(false);
+  }, [user]);
+
+  const mustChangePassword = user?.mustChangePassword === true || (readMustChangePasswordFlag() && user?.mustChangePassword !== false);
+
+  const hasPermission = (permission: string | null, href?: string): boolean => {
     // Super admin has all permissions
     if (user?.role === "superadmin") return true;
     
@@ -200,6 +211,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const modulePerms = user?.modulePermissions?.[permission as keyof typeof user.modulePermissions];
     if (!modulePerms) return false;
     
+    if (isInfluencerRole(user) && href && !isCreatorConsolePath(href)) return false;
+
     // Check if user has at least view permission
     return (modulePerms as any).canView || (modulePerms as any).canUpload;
   };
@@ -225,11 +238,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
       items: section.items.map(item => {
         if ("children" in item && item.children) {
           // Filter children first
-          const filteredChildren = item.children.filter(child => hasPermission(child.permission));
+          const filteredChildren = item.children.filter(child => hasPermission(child.permission, child.href));
           if (filteredChildren.length === 0) return null; // No children left, hide this item
           return { ...item, children: filteredChildren };
         }
-        if (!hasPermission(item.permission)) return null;
+        if (!hasPermission(item.permission, item.href)) return null;
         return item;
       }).filter(Boolean) as any[]
     }))
@@ -404,6 +417,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
     );
   };
+
+  if (!isLoading && user && mustChangePassword) {
+    return <ForcePasswordChange email={user.email} />;
+  }
 
   return (
     <div className="h-screen bg-background text-foreground flex flex-col md:flex-row overflow-hidden">
