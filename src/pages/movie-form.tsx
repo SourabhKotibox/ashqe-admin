@@ -17,8 +17,9 @@ import {
   useGetDirectors, useGetActors, useCreateMovie, useUpdateMovie,
   useGetGenres, useGetLanguagesList, useGetMovieById, useGetCategoriesList,
   useGetSections, getImageUrl, useGetCountries,
-  getMediaFileById, useGetSubscriptionPlans,
+  getMediaFileById, useGetSubscriptionPlans, useGetMe,
 } from "@/lib/api-client";
+import { SubmitForReviewButton } from "@/components/submit-for-review";
 
 /** Map subscription plan display name → stored planRequired key */
 function planNameToKey(name: string): string {
@@ -142,6 +143,8 @@ export default function MovieForm() {
 
   const createMovieMutation = useCreateMovie();
   const updateMovieMutation = useUpdateMovie();
+  const { data: me } = useGetMe();
+  const isCreator = me?.role === "influencer";
 
   const { data: movieData } = useGetMovieById(isEdit ? id! : "");
   const movie = (movieData as any)?.data;
@@ -565,7 +568,9 @@ export default function MovieForm() {
         planRequired,
         isFree: planRequired === "free",
         isLocked: planRequired !== "free",
-        status,
+        status: isCreator ? (movie?.status || "draft") : status,
+        featured: isCreator ? !!movie?.featured : featured,
+        trending: isCreator ? !!movie?.trending : trending,
         genres: selectedGenres,
         categories: selectedCategories,
         languages: selectedLanguages,
@@ -581,8 +586,6 @@ export default function MovieForm() {
         studio: studio.trim(),
         ageRating: parseInt(ageRating) || 0,
         downloadAllowed,
-        featured,
-        trending,
         isNewContent,
         isExclusive,
         maturityContent,
@@ -885,18 +888,30 @@ export default function MovieForm() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-foreground text-sm font-medium">Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as any)}>
-                  <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border text-foreground">
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="moderation">Moderation</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
+                {isCreator ? (
+                  <>
+                    <div className="h-10 rounded-lg border border-border bg-muted px-3 flex items-center text-sm text-foreground">
+                      {status === "moderation" ? "In Review" : status === "published" ? "Published" : status === "processing" ? "Processing" : status === "rejected" ? "Rejected" : "Draft"}
+                    </div>
+                    {status === "rejected" && movie?.rejectionReason && (
+                      <p className="text-xs text-rose-400">Rejected: {movie.rejectionReason}</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground">Publishing is done by an editor after you submit for review.</p>
+                  </>
+                ) : (
+                  <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+                    <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border-border text-foreground">
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="moderation">Moderation</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 
@@ -1111,8 +1126,10 @@ export default function MovieForm() {
               {/* Content flags */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: "Featured", value: featured, setter: setFeatured },
-                  { label: "Trending", value: trending, setter: setTrending },
+                  ...(isCreator ? [] : [
+                    { label: "Featured", value: featured, setter: setFeatured },
+                    { label: "Trending", value: trending, setter: setTrending },
+                  ]),
                   { label: "New Content", value: isNewContent, setter: setIsNewContent },
                   { label: "Exclusive", value: isExclusive, setter: setIsExclusive },
                 ].map(({ label, value, setter }) => (
@@ -1257,7 +1274,13 @@ export default function MovieForm() {
             {processingMediaId && (
               <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-foreground">
                 Video is attached — you can save the movie now. Transcoding continues in the background; HLS qualities will auto-fill when ready.
+                {isCreator && " Submit for review stays unavailable until processing finishes."}
               </div>
+            )}
+            {isCreator && (
+              <p className="text-xs text-muted-foreground">
+                Video files upload directly to storage with a secure upload link, then convert to HLS. Wait until that finishes before submitting for review.
+              </p>
             )}
             {(videoFilePath || videoUrl) && !processingMediaId && (
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-foreground">
@@ -1570,7 +1593,23 @@ export default function MovieForm() {
       </div>
 
       {/* Save Button */}
-      <div className="flex justify-end">
+      <div className="flex flex-col items-stretch sm:items-end gap-3 sm:flex-row sm:justify-end">
+        {isCreator && (
+          <SubmitForReviewButton
+            id={isEdit ? id : undefined}
+            kind="movie"
+            status={status}
+            blockReason={
+              !isEdit
+                ? "Save this movie as a draft before submitting for review."
+                : processingMediaId || status === "processing"
+                  ? "Video is still uploading or processing. You can submit for review once HLS is ready."
+                  : !(videoFilePath || videoUrl)
+                    ? "Add a video from the media library before submitting for review."
+                    : undefined
+            }
+          />
+        )}
         <Button
           onClick={handleSave}
           disabled={isSaving}

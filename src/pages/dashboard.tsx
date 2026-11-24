@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useSettings } from "@/contexts/SettingsContext";
 import {
+  useGetMe,
   useGetDashboardStats,
   useGetRevenueData,
   useGetNewSubscribersData,
@@ -26,6 +27,7 @@ import { useTheme } from "next-themes";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import CreatorDashboard from "@/pages/creator-dashboard";
 
 const COLORS = ["#FF8C38", "#F59E0B", "#D97706", "#B45309", "#92400E"];
 
@@ -64,7 +66,7 @@ function ChartLoader() {
   );
 }
 
-export default function Dashboard() {
+function AdminDashboard() {
   const { settings } = useSettings();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -565,4 +567,17 @@ export default function Dashboard() {
       </div>
     </div>
   );
+}
+
+export default function Dashboard() {
+  const { data: me, isLoading } = useGetMe();
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+  if (me?.role === "influencer") return <CreatorDashboard />;
+  return <AdminDashboard />;
 }

@@ -1352,6 +1352,7 @@ function UserDropdown({ onSignIn, onSignOut, user }: { onSignIn: () => void; onS
           { label: "My Watchlist", href: "/wishlist", icon: <Bookmark className="w-4 h-4" /> },
           { label: "Help & Support", href: "/help-support", icon: <AlertCircle className="w-4 h-4" /> },
           { label: "Become a Partner", href: "/partner-program", icon: <Crown className="w-4 h-4" /> },
+          { label: "Become a Creator", href: "/creator-program", icon: <Clapperboard className="w-4 h-4" /> },
         ].map((opt) => (
           <button
             key={opt.label}
@@ -2145,6 +2146,8 @@ export function PublicFooter() {
         <div className="pt-8 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-white/80 text-xs font-medium">{settings.copyrightText || "2025 StreamIT. All Rights Reserved."}</p>
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-5 gap-y-2">
+            <button type="button" onClick={() => setLocation("/partner-program")} className="text-white/80 hover:text-white text-[11px] font-bold transition-colors whitespace-nowrap">Become a Partner</button>
+            <button type="button" onClick={() => setLocation("/creator-program")} className="text-white/80 hover:text-white text-[11px] font-bold transition-colors whitespace-nowrap">Creator Program</button>
             {pages.map((p: any) => (
               <button 
                 key={p.slug || p.id} 
