@@ -1564,6 +1564,7 @@ export const uploadMediaFiles = async (
         fileName: file.name,
         contentType,
         folderId,
+        fileSize: file.size,
         source: source || 'media-library',
       }),
     });

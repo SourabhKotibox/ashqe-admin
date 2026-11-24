@@ -119,9 +119,12 @@ export default function CreatorDashboard() {
             <p className="text-sm text-muted-foreground py-6 text-center">No submissions yet. Upload a movie or web series to get started.</p>
           ) : (summary.recentSubmissions || []).map((item: any) => {
             const status = item.status || "draft";
-            const href = item.type === "tv" || item.type === "webseries" || item.kind === "tvShow"
+            const rawType = String(item.type || item.kind || "movie");
+            const isWebSeries = rawType === "tv" || rawType === "tvShow" || rawType === "webseries";
+            const href = isWebSeries
               ? `/tv-shows/${item.id || item._id}/edit`
               : `/movies/${item.id || item._id}/edit`;
+            const typeLabel = isWebSeries ? "web series" : rawType === "movie" ? "movie" : rawType.replace("webseries", "web series");
             return (
               <button
                 key={item.id || item._id || item.title}
@@ -133,7 +136,7 @@ export default function CreatorDashboard() {
                   <div className="min-w-0">
                     <p className="font-semibold truncate">{item.title || item.name || "Untitled"}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {(item.type || item.kind || "movie").toString().replace("webseries", "web series")}
+                      {typeLabel}
                       {item.updatedAt || item.submittedAt ? ` · ${fmtDateTime(item.updatedAt || item.submittedAt)}` : ""}
                     </p>
                   </div>
