@@ -13,6 +13,75 @@ export function isInfluencerRole(user: { role?: string } | null | undefined) {
   return user?.role === "influencer";
 }
 
+/**
+ * Catalog modules an influencer account is granted.
+ * Crew people use `directors` (there is no `crews` key).
+ * Country writes use `countries` for creators. Staff country writes still use `settings`.
+ */
+export const CATALOG_MODULE_KEYS = {
+  language: "languages",
+  genre: "genres",
+  actor: "actors",
+  director: "directors",
+  crew: "directors",
+  country: "countries",
+} as const;
+
+export type CatalogPermissionKind = keyof typeof CATALOG_MODULE_KEYS;
+export type CatalogPermissionAction = "canView" | "canCreate" | "canEdit" | "canDelete";
+
+type PermissionUser = {
+  role?: string;
+  id?: string;
+  _id?: string;
+  modulePermissions?: Record<string, Partial<Record<CatalogPermissionAction, boolean>> | undefined>;
+} | null | undefined;
+
+export function catalogModuleKey(kind: CatalogPermissionKind) {
+  return CATALOG_MODULE_KEYS[kind];
+}
+
+/**
+ * Influencers are checked against the catalog key above.
+ * Other roles keep the existing form behavior; the API still enforces their module flags.
+ */
+export function hasCatalogPermission(user: PermissionUser, kind: CatalogPermissionKind, action: CatalogPermissionAction) {
+  if (!user) return false;
+  if (user.role === "superadmin") return true;
+  if (!isInfluencerRole(user)) return true;
+  return Boolean(user.modulePermissions?.[CATALOG_MODULE_KEYS[kind]]?.[action]);
+}
+
+/** Creators may edit or delete a catalog row only when `createdBy` is their own id. */
+export function canMutateOwnedCatalogRow(
+  user: PermissionUser,
+  kind: CatalogPermissionKind,
+  createdBy: unknown,
+  action: "canEdit" | "canDelete"
+) {
+  if (!hasCatalogPermission(user, kind, action)) return false;
+  if (!isInfluencerRole(user)) return true;
+  const owner = createdBy && typeof createdBy === "object"
+    ? ((createdBy as { _id?: unknown; id?: unknown })._id || (createdBy as { id?: unknown }).id)
+    : createdBy;
+  const self = user?.id || user?._id;
+  return Boolean(self) && String(owner || "") === String(self);
+}
+
+const CREATOR_EDITORIAL_KEYS = ["status", "featured", "trending", "isFeatured", "isTrending"] as const;
+
+/**
+ * Creators must not send publish or editorial flags. The API rejects
+ * `status: "published"` and any featured/trending value that is on, including
+ * when an editor already set those flags and the creator is only saving edits.
+ */
+export function omitCreatorEditorialFields<T extends Record<string, any>>(payload: T, isCreator: boolean): T {
+  if (!isCreator) return payload;
+  const next = { ...payload };
+  for (const key of CREATOR_EDITORIAL_KEYS) delete next[key];
+  return next;
+}
+
 export function isCreatorConsolePath(path: string) {
   return CREATOR_ROUTE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }

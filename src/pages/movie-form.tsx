@@ -13,12 +13,14 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import MediaPicker from "@/components/MediaPicker";
+import CatalogPicker, { crewCatalogKind, creditsFromTitle, isCountryId, splitTitleCredits } from "@/components/CatalogPicker";
 import {
-  useGetDirectors, useGetActors, useCreateMovie, useUpdateMovie,
-  useGetGenres, useGetLanguagesList, useGetMovieById, useGetCategoriesList,
-  useGetSections, getImageUrl, useGetCountries,
+  useCreateMovie, useUpdateMovie,
+  useGetMovieById, useGetCategoriesList,
+  useGetSections, getImageUrl,
   getMediaFileById, useGetSubscriptionPlans, useGetMe,
 } from "@/lib/api-client";
+import { omitCreatorEditorialFields } from "@/lib/creator-access";
 import { SubmitForReviewButton } from "@/components/submit-for-review";
 
 /** Map subscription plan display name → stored planRequired key */
@@ -38,7 +40,15 @@ const TABS: Tab[] = ["Movie Details", "Basic Info", "Quality Info", "Subtitle In
 type QualityRow = { id: string; type: string; quality: string; filePath: string; url: string };
 type SubtitleRow = { id: string; language: string; filePath: string };
 type CastItem = { id: string; actorId: string; character: string; role: string };
-type CrewItem = { id: string; directorId: string; role: string };
+type CrewItem = {
+  id: string;
+  directorId: string;
+  role: string;
+  personName?: string;
+  personImage?: string;
+  /** "crew" means directorId is a crew-catalog id until save links a director credit. */
+  source?: "director" | "crew";
+};
 
 const secsToDuration = (s: number): string => {
   const h = Math.floor(s / 3600);
@@ -115,20 +125,10 @@ export default function MovieForm() {
   const [seoImagePickerOpen, setSeoImagePickerOpen] = useState(false);
 
   /* ---- API data ---- */
-  const { data: directorsData } = useGetDirectors({ page: 1, limit: 200 });
-  const directorsList = (directorsData as any)?.data || [];
-  const { data: actorsData } = useGetActors({ page: 1, limit: 200 });
-  const actorsList = (actorsData as any)?.data || [];
-  const { data: genresData } = useGetGenres({ page: 1, limit: 100, admin: true });
-  const genresList = (genresData as any)?.data || [];
-  const { data: languagesData } = useGetLanguagesList();
-  const languagesList = (languagesData as any)?.data || [];
   const { data: categoriesData } = useGetCategoriesList({ limit: 100, admin: true });
   const categoriesList = (categoriesData as any)?.data || [];
   const { data: sectionsData } = useGetSections({ contentType: "movie", activeOnly: true });
   const sectionOptions = sectionsData?.data?.map((s: any) => ({ id: s.id || s._id, title: s.title })) || [];
-  const { data: countriesData } = useGetCountries({ limit: 100 });
-  const countries = countriesData?.data || [];
   const { data: plansData } = useGetSubscriptionPlans({ limit: 100 });
   const subscriptionPlans = ((plansData as any)?.data || []).filter(
     (p: any) => p.status !== false && p.status !== "inactive"
@@ -183,6 +183,7 @@ export default function MovieForm() {
   const [duration, setDuration] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
   const [country, setCountry] = useState("");
+  const [countryId, setCountryId] = useState("");
   const [producer, setProducer] = useState("");
   const [studio, setStudio] = useState("");
   const [ageRating, setAgeRating] = useState("0");
@@ -412,7 +413,8 @@ export default function MovieForm() {
     setReleaseDate(
       movie.releaseDate ? new Date(movie.releaseDate).toISOString().split("T")[0] : ""
     );
-    setCountry(movie.country || "");
+    setCountry(typeof movie.country === "string" ? movie.country : movie.country?.name || "");
+    setCountryId(getId(movie.countryId));
     setProducer(movie.producer || "");
     setStudio(movie.studio || "");
     setAgeRating(movie.ageRating != null ? String(movie.ageRating) : "0");
@@ -447,15 +449,7 @@ export default function MovieForm() {
         }))
       );
     }
-    if (Array.isArray(movie.crew)) {
-      setCrewItems(
-        movie.crew.map((c: any, i: number) => ({
-          id: String(i),
-          directorId: getId(c.director),
-          role: c.role || "Director",
-        }))
-      );
-    }
+    setCrewItems(creditsFromTitle(movie.crew, movie.crewMembers));
 
     if (movie.hlsUrl) {
       const isHttp = movie.hlsUrl.startsWith("http://") || movie.hlsUrl.startsWith("https://");
@@ -522,11 +516,19 @@ export default function MovieForm() {
     setCastItems((p) => p.map((c) => (c.id === itemId ? { ...c, [key]: value } : c)));
 
   const addCrewItem = () =>
-    setCrewItems((p) => [...p, { id: Date.now().toString(), directorId: "", role: "Director" }]);
+    setCrewItems((p) => [...p, { id: Date.now().toString(), directorId: "", role: "Director", source: "director" }]);
   const removeCrewItem = (itemId: string) =>
     setCrewItems((p) => p.filter((c) => c.id !== itemId));
   const updateCrewItem = (itemId: string, key: keyof CrewItem, value: string) =>
     setCrewItems((p) => p.map((c) => (c.id === itemId ? { ...c, [key]: value } : c)));
+  const setCrewPerson = (itemId: string, person: { id: string; name?: string; image?: string } | null, source: "director" | "crew") =>
+    setCrewItems((p) => p.map((c) => c.id === itemId ? {
+      ...c,
+      directorId: person?.id || "",
+      personName: person?.name || "",
+      personImage: person?.image || "",
+      source,
+    } : c));
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
@@ -555,6 +557,7 @@ export default function MovieForm() {
     setIsSaving(true);
     try {
       const effectiveTrailerUrl = trailerUrlType === "local" ? trailerFilePath : trailerUrl;
+      const { crew: crewPayload, crewMembers } = splitTitleCredits(crewItems);
 
       const payload: Record<string, any> = {
         title: title.trim(),
@@ -568,9 +571,9 @@ export default function MovieForm() {
         planRequired,
         isFree: planRequired === "free",
         isLocked: planRequired !== "free",
-        status: isCreator ? (movie?.status || "draft") : status,
-        featured: isCreator ? !!movie?.featured : featured,
-        trending: isCreator ? !!movie?.trending : trending,
+        status,
+        featured,
+        trending,
         genres: selectedGenres,
         categories: selectedCategories,
         languages: selectedLanguages,
@@ -582,6 +585,7 @@ export default function MovieForm() {
         duration: duration ? durationToSecs(duration) : undefined,
         releaseDate: releaseDate ? new Date(releaseDate).toISOString() : undefined,
         country: country.trim(),
+        ...(isCountryId(countryId) ? { countryId } : {}),
         producer: producer.trim(),
         studio: studio.trim(),
         ageRating: parseInt(ageRating) || 0,
@@ -594,9 +598,8 @@ export default function MovieForm() {
         cast: castItems
           .filter((c) => c.actorId)
           .map((c) => ({ actor: c.actorId, character: c.character, role: c.role })),
-        crew: crewItems
-          .filter((c) => c.directorId)
-          .map((c) => ({ director: c.directorId, role: c.role })),
+        crew: crewPayload,
+        crewMembers,
         hlsUrl: videoUploadType === "local" ? videoFilePath : (videoUrl || videoFilePath),
         videoQualities: qualityEnabled
           ? qualityRows
@@ -636,10 +639,11 @@ export default function MovieForm() {
         return;
       }
 
+      const body = omitCreatorEditorialFields(payload, isCreator);
       if (isEdit) {
-        await updateMovieMutation.mutateAsync({ id: id!, data: payload });
+        await updateMovieMutation.mutateAsync({ id: id!, data: body });
       } else {
-        await createMovieMutation.mutateAsync(payload);
+        await createMovieMutation.mutateAsync(body);
       }
 
       toast({ title: isEdit ? "Movie updated successfully!" : "Movie created successfully!" });
@@ -882,7 +886,9 @@ export default function MovieForm() {
                 </Select>
                 {subscriptionPlans.length === 0 && (
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    No subscription plans found — only Free is available. Add plans under Subscriptions → Plans.
+                    {isCreator
+                      ? "Only Free is available right now."
+                      : "No subscription plans found — only Free is available. Add plans under Subscriptions → Plans."}
                   </p>
                 )}
               </div>
@@ -949,28 +955,28 @@ export default function MovieForm() {
             <SectionHeading title="Media Info" />
             <div className="rounded-xl border border-border bg-muted/10 p-5 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <MultiSelect
+                <CatalogPicker
+                  kind="language"
+                  multiple
+                  required
                   label="Languages"
-                  required
-                  items={languagesList}
-                  selected={selectedLanguages}
-                  onAdd={(v) => setSelectedLanguages((p) => [...p, v])}
-                  onRemove={(v) => setSelectedLanguages((p) => p.filter((x) => x !== v))}
+                  value={selectedLanguages}
+                  onChange={(ids) => setSelectedLanguages(ids as string[])}
                 />
-                <MultiSelect
+                <CatalogPicker
+                  kind="language"
+                  multiple
                   label="Audio Languages"
-                  items={languagesList}
-                  selected={selectedAudioLanguages}
-                  onAdd={(v) => setSelectedAudioLanguages((p) => [...p, v])}
-                  onRemove={(v) => setSelectedAudioLanguages((p) => p.filter((x) => x !== v))}
+                  value={selectedAudioLanguages}
+                  onChange={(ids) => setSelectedAudioLanguages(ids as string[])}
                 />
-                <MultiSelect
-                  label="Genres"
+                <CatalogPicker
+                  kind="genre"
+                  multiple
                   required
-                  items={genresList}
-                  selected={selectedGenres}
-                  onAdd={(v) => setSelectedGenres((p) => [...p, v])}
-                  onRemove={(v) => setSelectedGenres((p) => p.filter((x) => x !== v))}
+                  label="Genres"
+                  value={selectedGenres}
+                  onChange={(ids) => setSelectedGenres(ids as string[])}
                 />
               </div>
 
@@ -982,27 +988,24 @@ export default function MovieForm() {
                   onAdd={(v) => setSelectedCategories((p) => [...p, v])}
                   onRemove={(v) => setSelectedCategories((p) => p.filter((x) => x !== v))}
                 />
-                <div className="space-y-1.5">
-                  <Label className="text-foreground text-sm font-medium">Country</Label>
-                  <Select
-                    value={country}
-                    onValueChange={setCountry}
-                  >
-                    <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
-                      <SelectValue placeholder="Select Country" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-foreground max-h-60 overflow-y-auto">
-                      {(country && !countries.some((c: any) => c.name === country)
-                        ? [{ id: "temp-saved", name: country }, ...countries]
-                        : countries
-                      ).map((c: any) => (
-                        <SelectItem key={c.id || c.name} value={c.name}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <CatalogPicker
+                  kind="country"
+                  label="Country"
+                  value={countryId || country}
+                  fallbackLabel={country}
+                  onChange={(id, item) => {
+                    const next = String(id || "");
+                    if (!next) { setCountryId(""); setCountry(""); return; }
+                    if (isCountryId(next)) {
+                      setCountryId(next);
+                      setCountry(item?.name || country);
+                    } else {
+                      setCountryId("");
+                      setCountry(item?.name || next);
+                    }
+                  }}
+                  placeholder="Select Country"
+                />
                 <div className="space-y-1.5">
                   <Label className="text-foreground text-sm font-medium">Year</Label>
                   <Input
@@ -1168,17 +1171,15 @@ export default function MovieForm() {
                   castItems.map((item) => (
                     <div key={item.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end p-3 rounded-xl border border-border bg-card">
                       <div className="space-y-1">
-                        <Label className="text-foreground text-xs font-medium">Actor</Label>
-                        <Select value={item.actorId} onValueChange={(v) => updateCastItem(item.id, "actorId", v)}>
-                          <SelectTrigger className="bg-muted border-border text-foreground h-9 rounded-lg text-sm">
-                            <SelectValue placeholder="Select actor..." />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border-border text-foreground max-h-60">
-                            {actorsList.map((a: any) => (
-                              <SelectItem key={getId(a)} value={getId(a)}>{a.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <CatalogPicker
+                          kind="actor"
+                          size="sm"
+                          label="Actor"
+                          value={item.actorId}
+                          onChange={(id) => updateCastItem(item.id, "actorId", String(id || ""))}
+                          placeholder="Select actor..."
+                          designation="Actor"
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-foreground text-xs font-medium">Character</Label>
@@ -1216,29 +1217,34 @@ export default function MovieForm() {
               {/* Crew */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">Crew (Directors)</p>
+                  <p className="text-sm font-semibold text-foreground">Directors & crew</p>
                   <Button type="button" onClick={addCrewItem}
                     className="bg-primary hover:bg-primary/90 text-white h-8 gap-1.5 rounded-lg px-3 text-xs font-semibold">
-                    <Plus className="h-3.5 w-3.5" /> Add Director
+                    <Plus className="h-3.5 w-3.5" /> Add
                   </Button>
                 </div>
                 {crewItems.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No crew added yet.</p>
                 ) : (
-                  crewItems.map((item) => (
+                  crewItems.map((item) => {
+                    const personKind = crewCatalogKind(item.role);
+                    return (
                     <div key={item.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end p-3 rounded-xl border border-border bg-card">
                       <div className="space-y-1">
-                        <Label className="text-foreground text-xs font-medium">Director</Label>
-                        <Select value={item.directorId} onValueChange={(v) => updateCrewItem(item.id, "directorId", v)}>
-                          <SelectTrigger className="bg-muted border-border text-foreground h-9 rounded-lg text-sm">
-                            <SelectValue placeholder="Select director..." />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border-border text-foreground max-h-60">
-                            {directorsList.map((d: any) => (
-                              <SelectItem key={getId(d)} value={getId(d)}>{d.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <CatalogPicker
+                          kind={personKind}
+                          size="sm"
+                          label={personKind === "director" ? "Director" : "Crew member"}
+                          value={item.directorId}
+                          fallbackLabel={item.personName}
+                          designation={item.role}
+                          onChange={(id, picked) => setCrewPerson(
+                            item.id,
+                            id ? { id: String(id), name: picked?.name || item.personName, image: picked?.image || item.personImage } : null,
+                            personKind
+                          )}
+                          placeholder={personKind === "director" ? "Select director..." : "Select crew member..."}
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-foreground text-xs font-medium">Role</Label>
@@ -1260,7 +1266,8 @@ export default function MovieForm() {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1435,12 +1442,12 @@ export default function MovieForm() {
           <div className="p-6 space-y-6">
             <SectionHeading title="Subtitle Languages" />
             <div className="rounded-xl border border-border bg-muted/10 p-5">
-              <MultiSelect
+              <CatalogPicker
+                kind="language"
+                multiple
                 label="Subtitle Languages"
-                items={languagesList}
-                selected={selectedSubtitleLanguages}
-                onAdd={(v) => setSelectedSubtitleLanguages((p) => [...p, v])}
-                onRemove={(v) => setSelectedSubtitleLanguages((p) => p.filter((x) => x !== v))}
+                value={selectedSubtitleLanguages}
+                onChange={(ids) => setSelectedSubtitleLanguages(ids as string[])}
                 placeholder="Select subtitle languages..."
               />
             </div>
@@ -1460,20 +1467,13 @@ export default function MovieForm() {
                 {subtitleRows.map((row) => (
                   <div key={row.id} className="rounded-xl border border-border bg-muted/10 p-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <div className="space-y-1.5">
-                      <Label className="text-foreground text-sm font-medium">Language</Label>
-                      <Select
+                      <CatalogPicker
+                        kind="language"
+                        label="Language"
                         value={row.language}
-                        onValueChange={(v) => setSubtitleRows((p) => p.map((r) => r.id === row.id ? { ...r, language: v } : r))}
-                      >
-                        <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
-                          <SelectValue placeholder="Select Language" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border-border text-foreground max-h-60">
-                          {languagesList.map((lang: any) => (
-                            <SelectItem key={getId(lang)} value={getId(lang)}>{lang.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(id) => setSubtitleRows((p) => p.map((r) => r.id === row.id ? { ...r, language: String(id || "") } : r))}
+                        placeholder="Select Language"
+                      />
                     </div>
                     <div className="flex gap-3 items-end min-w-0">
                       <div className="flex-1 space-y-1.5 min-w-0">
