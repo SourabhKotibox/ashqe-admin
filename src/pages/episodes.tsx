@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Edit2, Trash2, Search, Plus, Loader2, ImageIcon, Lock, Unlock,
@@ -20,13 +20,20 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useGetEpisodeList, useDeleteEpisode, useToggleEpisodeLock, getImageUrl,
+  useGetEpisodeList, useDeleteEpisode, useToggleEpisodeLock, getImageUrl, useGetMe,
 } from "@/lib/api-client";
 
 export default function EpisodesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
+  const tvShowFilter = searchParams.get("tvShowId") || "";
+  const seasonFilter = searchParams.get("season") || "";
+  const { data: me } = useGetMe();
+  const isCreator = me?.role === "influencer";
+  const canDeleteEpisodes = !isCreator || !!me?.modulePermissions?.tvShows?.canDelete;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("action");
@@ -37,6 +44,8 @@ export default function EpisodesPage() {
     page,
     limit: 50,
     search: searchQuery || undefined,
+    tvShowId: tvShowFilter || undefined,
+    season: seasonFilter || undefined,
   });
   const deleteEpisodeMutation = useDeleteEpisode();
   const toggleLockMutation = useToggleEpisodeLock();
@@ -105,9 +114,15 @@ export default function EpisodesPage() {
         {total > 0 && (
           <span className="text-muted-foreground/80 text-xs">({total} total)</span>
         )}
+        {(tvShowFilter || seasonFilter) && (
+          <button type="button" onClick={() => setLocation("/episodes")} className="text-xs text-primary hover:underline">
+            Clear season filter
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {canDeleteEpisodes && (
         <Select value={bulkAction} onValueChange={setBulkAction}>
           <SelectTrigger className="w-36 bg-card border-border text-foreground h-10 rounded-lg text-sm">
             <SelectValue />
@@ -117,9 +132,12 @@ export default function EpisodesPage() {
             <SelectItem value="delete">Delete Selected</SelectItem>
           </SelectContent>
         </Select>
+        )}
+        {canDeleteEpisodes && (
         <Button onClick={handleApplyBulk} className="bg-primary hover:bg-primary/90 text-white h-10 px-5 rounded-lg font-semibold text-sm">
           Apply
         </Button>
+        )}
 
         <div className="flex-1" />
 
@@ -134,7 +152,7 @@ export default function EpisodesPage() {
         </div>
 
         <Button
-          onClick={() => setLocation("/episodes/new")}
+          onClick={() => setLocation(tvShowFilter ? `/episodes/new?tvShowId=${encodeURIComponent(tvShowFilter)}&season=${encodeURIComponent(seasonFilter || "1")}` : "/episodes/new")}
           className="bg-primary hover:bg-primary/90 text-white h-10 gap-2 rounded-lg px-5 font-semibold text-sm"
         >
           <Plus className="h-4 w-4" /> New Episode
@@ -222,6 +240,7 @@ export default function EpisodesPage() {
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
+                        {canDeleteEpisodes && (
                         <button
                           onClick={() => setConfirmDelete(ep)}
                           className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/15 text-primary hover:bg-primary/80/30 transition-colors"
@@ -229,6 +248,7 @@ export default function EpisodesPage() {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

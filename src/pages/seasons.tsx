@@ -18,12 +18,15 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSeasonList, useGetEpisodeList, useDeleteEpisode, getImageUrl } from "@/lib/api-client";
+import { useGetSeasonList, useGetEpisodeList, useDeleteEpisode, getImageUrl, useGetMe } from "@/lib/api-client";
 
 export default function SeasonsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const { data: me } = useGetMe();
+  const isCreator = me?.role === "influencer";
+  const canDeleteEpisodes = !isCreator || !!me?.modulePermissions?.tvShows?.canDelete;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("action");
@@ -83,6 +86,8 @@ export default function SeasonsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {canDeleteEpisodes && (
+        <>
         <Select value={bulkAction} onValueChange={setBulkAction}>
           <SelectTrigger className="w-36 bg-card border-border text-foreground h-10 rounded-lg text-sm">
             <SelectValue />
@@ -102,6 +107,8 @@ export default function SeasonsPage() {
         >
           Apply
         </Button>
+        </>
+        )}
 
         <div className="flex-1" />
 
@@ -188,12 +195,13 @@ export default function SeasonsPage() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => setLocation(`/episodes?tvShowId=${season.tvShowId}&season=${season.season}`)}
+                          onClick={() => setLocation(`/episodes?tvShowId=${encodeURIComponent(String(season.tvShowId?._id || season.tvShowId))}&season=${encodeURIComponent(String(season.season))}`)}
                           className="h-8 w-8 flex items-center justify-center rounded-lg bg-amber-600/15 text-amber-400 hover:bg-amber-600/30 transition-colors"
                           title="View Episodes"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
+                        {canDeleteEpisodes && (
                         <button
                           onClick={() => setConfirmDelete(season)}
                           className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/15 text-primary hover:bg-primary/80/30 transition-colors"
@@ -201,6 +209,7 @@ export default function SeasonsPage() {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

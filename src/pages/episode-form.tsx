@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useLocation, useParams } from "wouter";
+import { useLocation, useParams, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { Sparkles, X, Loader2, Plus, Trash2, ImageIcon, Upload as UploadIcon } from "lucide-react";
+import { Sparkles, Loader2, Plus, Trash2, ImageIcon, Upload as UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 import {
   useGetTVShows, useGetSeasonList,
   useGetEpisodeById, useCreateEpisode, useUpdateEpisode,
-  useGetLanguagesList, getImageUrl, getMediaFileById
+  getImageUrl, getMediaFileById
 } from "@/lib/api-client";
 import MediaPicker from "@/components/MediaPicker";
+import CatalogPicker from "@/components/CatalogPicker";
 
 type Tab = "Episode Details" | "Basic Info" | "Subtitle Info";
 const TABS: Tab[] = ["Episode Details", "Basic Info", "Subtitle Info"];
@@ -66,6 +67,10 @@ export default function EpisodeForm() {
   const [location, setLocation] = useLocation();
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
+  const queryShowId = searchParams.get("tvShowId") || "";
+  const querySeason = searchParams.get("season") || "";
 
   const [activeTab, setActiveTab] = useState<Tab>("Episode Details");
 
@@ -80,8 +85,8 @@ export default function EpisodeForm() {
 
   // Episode Details
   const [thumbnailUrl, setThumbnailUrl] = useState("");
-  const [tvShowId, setTvShowId] = useState("");
-  const [seasonNumber, setSeasonNumber] = useState("1");
+  const [tvShowId, setTvShowId] = useState(queryShowId);
+  const [seasonNumber, setSeasonNumber] = useState(querySeason || "1");
   const [episodeNumber, setEpisodeNumber] = useState("1");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -111,11 +116,9 @@ export default function EpisodeForm() {
   const isShortDramaRoute = location.includes("short-drama");
 
   // API
-  const { data: showsData, isLoading: loadingShows } = useGetTVShows({ limit: 200 });
+  const { data: showsData, isLoading: loadingShows } = useGetTVShows({ limit: 100 });
   const { data: seasonsData } = useGetSeasonList(tvShowId ? { tvShowId: tvShowId } : {});
   const { data: existingEpisode, isLoading: loadingEpisode } = useGetEpisodeById(isEdit ? id : "");
-  const { data: languagesData } = useGetLanguagesList();
-  const languagesList = (languagesData as any)?.data || [];
   const createMutation = useCreateEpisode();
   const updateMutation = useUpdateEpisode();
 
@@ -402,52 +405,6 @@ export default function EpisodeForm() {
     );
   }
 
-  const MultiSelect = ({
-    label, required = false, items, selected, onAdd, onRemove, placeholder,
-  }: {
-    label: string; required?: boolean;
-    items: any[]; selected: string[];
-    onAdd: (id: string) => void; onRemove: (id: string) => void;
-    placeholder?: string;
-  }) => (
-    <div className="space-y-1.5">
-      <Label className="text-foreground text-sm font-medium">
-        {label} {required && <span className="text-primary">*</span>}
-      </Label>
-      <div className="space-y-2">
-        {selected.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {selected.map((itemId) => {
-              const item = items.find((i: any) => getId(i) === itemId);
-              return (
-                <div key={itemId} className="flex items-center gap-1 bg-muted border border-border rounded-lg px-2.5 py-1 text-xs">
-                  <span className="text-foreground">{item?.name || itemId}</span>
-                  <button type="button" onClick={() => onRemove(itemId)} className="text-muted-foreground hover:text-primary">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        <Select value="" onValueChange={(v) => { if (v && !selected.includes(v)) onAdd(v); }}>
-          <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
-            <SelectValue placeholder={placeholder || `Select ${label.toLowerCase()}...`} />
-          </SelectTrigger>
-          <SelectContent className="bg-popover border-border text-foreground max-h-60">
-            {items
-              .filter((i: any) => !selected.includes(getId(i)))
-              .map((item: any) => (
-                <SelectItem key={getId(item)} value={getId(item)}>
-                  {item.name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-5 pb-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -510,8 +467,11 @@ export default function EpisodeForm() {
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border text-foreground">
                     {tvShows.length === 0
-                      ? <SelectItem value="_none" disabled>No TV shows found</SelectItem>
-                      : tvShows.map((s) => <SelectItem key={s._id} value={s._id}>{s.title}</SelectItem>)
+                      ? <SelectItem value="_none" disabled>No web series found. Create one first.</SelectItem>
+                      : tvShows.map((s) => {
+                          const showId = String(s.id || s._id);
+                          return <SelectItem key={showId} value={showId}>{s.title}</SelectItem>;
+                        })
                     }
                   </SelectContent>
                 </Select>
@@ -676,12 +636,12 @@ export default function EpisodeForm() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <MultiSelect
+              <CatalogPicker
+                kind="language"
+                multiple
                 label="Audio Languages"
-                items={languagesList}
-                selected={selectedAudioLanguages}
-                onAdd={(v) => setSelectedAudioLanguages((p) => [...p, v])}
-                onRemove={(v) => setSelectedAudioLanguages((p) => p.filter((x) => x !== v))}
+                value={selectedAudioLanguages}
+                onChange={(ids) => setSelectedAudioLanguages(ids as string[])}
               />
               <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/20">
                 <div>
@@ -765,12 +725,12 @@ export default function EpisodeForm() {
           <div className="p-6 space-y-5">
             <p className="text-base font-semibold text-foreground">Subtitle Languages</p>
             <div className="rounded-xl border border-border bg-muted/10 p-5">
-              <MultiSelect
+              <CatalogPicker
+                kind="language"
+                multiple
                 label="Subtitle Languages"
-                items={languagesList}
-                selected={selectedSubtitleLanguages}
-                onAdd={(v) => setSelectedSubtitleLanguages((p) => [...p, v])}
-                onRemove={(v) => setSelectedSubtitleLanguages((p) => p.filter((x) => x !== v))}
+                value={selectedSubtitleLanguages}
+                onChange={(ids) => setSelectedSubtitleLanguages(ids as string[])}
               />
               <p className="text-xs text-muted-foreground mt-2">
                 Select the subtitle languages available for this episode.
@@ -796,20 +756,13 @@ export default function EpisodeForm() {
                 {subtitleRows.map((row) => (
                   <div key={row.id} className="rounded-xl border border-border bg-muted/10 p-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <div className="space-y-1.5">
-                      <Label className="text-foreground text-sm font-medium">Language</Label>
-                      <Select
+                      <CatalogPicker
+                        kind="language"
+                        label="Language"
                         value={row.language}
-                        onValueChange={(v) => setSubtitleRows((p) => p.map((r) => r.id === row.id ? { ...r, language: v } : r))}
-                      >
-                        <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
-                          <SelectValue placeholder="Select Language" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border-border text-foreground max-h-60">
-                          {languagesList.map((lang: any) => (
-                            <SelectItem key={getId(lang)} value={getId(lang)}>{lang.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(id) => setSubtitleRows((p) => p.map((r) => r.id === row.id ? { ...r, language: String(id || "") } : r))}
+                        placeholder="Select Language"
+                      />
                     </div>
                     <div className="flex gap-3 items-end min-w-0">
                       <div className="flex-1 space-y-1.5 min-w-0">

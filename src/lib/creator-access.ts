@@ -13,6 +13,20 @@ export function isInfluencerRole(user: { role?: string } | null | undefined) {
   return user?.role === "influencer";
 }
 
+const CREATOR_EDITORIAL_KEYS = ["status", "featured", "trending", "isFeatured", "isTrending"] as const;
+
+/**
+ * Creators must not send publish or editorial flags. The API rejects
+ * `status: "published"` and any featured/trending value that is on, including
+ * when an editor already set those flags and the creator is only saving edits.
+ */
+export function omitCreatorEditorialFields<T extends Record<string, any>>(payload: T, isCreator: boolean): T {
+  if (!isCreator) return payload;
+  const next = { ...payload };
+  for (const key of CREATOR_EDITORIAL_KEYS) delete next[key];
+  return next;
+}
+
 export function isCreatorConsolePath(path: string) {
   return CREATOR_ROUTE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }

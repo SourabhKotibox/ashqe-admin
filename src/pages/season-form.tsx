@@ -30,8 +30,8 @@ export default function SeasonForm() {
   const [isFree, setIsFree] = useState(false);
 
   const { data: showsData, isLoading: loadingShows } = useGetTVShows({
-    contentType: isShortDrama ? "drama" : "series",
-    limit: 100
+    ...(isShortDrama ? { contentType: "drama" } : {}),
+    limit: 100,
   });
   const createEpisodeMutation = useCreateEpisode();
 
@@ -103,9 +103,10 @@ export default function SeasonForm() {
                     {isShortDrama ? "No short dramas found. Create one first." : "No TV shows found. Create one first."}
                   </SelectItem>
                 ) : (
-                  tvShows.map((show) => (
-                    <SelectItem key={show._id} value={show._id}>{show.title}</SelectItem>
-                  ))
+                  tvShows.map((show) => {
+                    const showId = String(show.id || show._id);
+                    return <SelectItem key={showId} value={showId}>{show.title}</SelectItem>;
+                  })
                 )}
               </SelectContent>
             </Select>

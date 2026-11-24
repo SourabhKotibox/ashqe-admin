@@ -422,8 +422,11 @@ export const useDeleteUser = () => {
 };
 
 // Languages
-export const getLanguagesList = async () => {
-  return api("/languages");
+export const getLanguagesList = async (options?: { search?: string }) => {
+  const params = new URLSearchParams();
+  if (options?.search) params.set("search", options.search);
+  const qs = params.toString();
+  return api(`/languages${qs ? `?${qs}` : ""}`);
 };
 
 export const getLanguageById = async (id) => {
@@ -1369,11 +1372,12 @@ export const useTestEmail = () => {
 };
 
 // Genres
-export const getGenres = async (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const getGenres = async (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   const params = new URLSearchParams();
   if (options?.page) params.append('page', options.page.toString());
   if (options?.limit) params.append('limit', options.limit.toString());
   if (options?.admin) params.append('admin', 'true');
+  if (options?.search) params.append('search', options.search);
   return api(`/genres?${params.toString()}`);
 };
 
@@ -1406,7 +1410,7 @@ export const bulkDeleteGenres = async (ids: string[]) => {
   });
 };
 
-export const useGetGenres = (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const useGetGenres = (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   return useQuery({
     queryKey: ['genres', options],
     queryFn: () => getGenres(options)
@@ -2692,11 +2696,12 @@ export const useBulkDeleteFAQs = () => {
 };
 
 // Actors API
-export const getActors = async (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const getActors = async (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   const params = new URLSearchParams();
   if (options?.page) params.set('page', options.page.toString());
   if (options?.limit) params.set('limit', options.limit.toString());
   if (options?.admin) params.set('admin', 'true');
+  if (options?.search) params.set('search', options.search);
   return api(`/actors?${params.toString()}`);
 };
 
@@ -2729,7 +2734,7 @@ export const bulkDeleteActors = async (ids: string[]) => {
   });
 };
 
-export const useGetActors = (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const useGetActors = (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   return useQuery({
     queryKey: ['actors', options],
     queryFn: () => getActors(options)
@@ -2785,11 +2790,12 @@ export const useBulkDeleteActors = () => {
 };
 
 // Directors API
-export const getDirectors = async (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const getDirectors = async (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   const params = new URLSearchParams();
   if (options?.page) params.set('page', options.page.toString());
   if (options?.limit) params.set('limit', options.limit.toString());
   if (options?.admin) params.set('admin', 'true');
+  if (options?.search) params.set('search', options.search);
   return api(`/directors?${params.toString()}`);
 };
 
@@ -2822,7 +2828,7 @@ export const bulkDeleteDirectors = async (ids: string[]) => {
   });
 };
 
-export const useGetDirectors = (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const useGetDirectors = (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   return useQuery({
     queryKey: ['directors', options],
     queryFn: () => getDirectors(options)
@@ -3262,11 +3268,12 @@ export const verifyOtpClient = async (opts: {
 };
 
 // Countries API
-export const getCountries = async (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const getCountries = async (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   const params = new URLSearchParams();
   if (options?.page) params.set('page', options.page.toString());
   if (options?.limit) params.set('limit', options.limit.toString());
   if (options?.admin) params.set('admin', 'true');
+  if (options?.search) params.set('search', options.search);
   return api(`/countries?${params.toString()}`);
 };
 
@@ -3290,7 +3297,7 @@ export const deleteCountry = async (id: string) => {
   return api(`/countries/${id}`, { method: 'DELETE' });
 };
 
-export const useGetCountries = (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const useGetCountries = (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   return useQuery({ queryKey: ['countries', options], queryFn: () => getCountries(options) });
 };
 
@@ -3319,11 +3326,12 @@ export const useDeleteCountry = () => {
 };
 
 // Crews API
-export const getCrews = async (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const getCrews = async (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   const params = new URLSearchParams();
   if (options?.page) params.set('page', options.page.toString());
   if (options?.limit) params.set('limit', options.limit.toString());
   if (options?.admin) params.set('admin', 'true');
+  if (options?.search) params.set('search', options.search);
   return api(`/crews?${params.toString()}`);
 };
 
@@ -3355,7 +3363,7 @@ export const bulkDeleteCrews = async (ids: string[]) => {
   });
 };
 
-export const useGetCrews = (options?: { page?: number; limit?: number; admin?: boolean }) => {
+export const useGetCrews = (options?: { page?: number; limit?: number; admin?: boolean; search?: string }) => {
   return useQuery({ queryKey: ['crews', options], queryFn: () => getCrews(options) });
 };
 
