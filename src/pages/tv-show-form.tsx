@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import MediaPicker from "@/components/MediaPicker";
-import CatalogPicker, { crewCatalogKind, directorIdForCrewCredit } from "@/components/CatalogPicker";
+import CatalogPicker, { crewCatalogKind, creditsFromTitle, isCountryId, splitTitleCredits } from "@/components/CatalogPicker";
 import {
   useCreateTVShow, useUpdateTVShow,
   useGetTVShowById, useGetCategoriesList,
@@ -185,6 +185,7 @@ export default function TvShowForm() {
   const [duration, setDuration] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
   const [country, setCountry] = useState("");
+  const [countryId, setCountryId] = useState("");
   const [producer, setProducer] = useState("");
   const [studio, setStudio] = useState("");
   const [ageRating, setAgeRating] = useState("0");
@@ -415,7 +416,8 @@ export default function TvShowForm() {
     setReleaseDate(
       tvShow.releaseDate ? new Date(tvShow.releaseDate).toISOString().split("T")[0] : ""
     );
-    setCountry(tvShow.country || "");
+    setCountry(typeof tvShow.country === "string" ? tvShow.country : tvShow.country?.name || "");
+    setCountryId(getId(tvShow.countryId));
     setProducer(tvShow.producer || "");
     setStudio(tvShow.studio || "");
     setAgeRating(tvShow.ageRating != null ? String(tvShow.ageRating) : "0");
@@ -450,18 +452,7 @@ export default function TvShowForm() {
         }))
       );
     }
-    if (Array.isArray(tvShow.crew)) {
-      setCrewItems(
-        tvShow.crew.map((c: any, i: number) => ({
-          id: String(i),
-          directorId: getId(c.director),
-          personName: c.director?.name || "",
-          personImage: c.director?.image || "",
-          role: c.role || "Director",
-          source: "director" as const,
-        }))
-      );
-    }
+    setCrewItems(creditsFromTitle(tvShow.crew, tvShow.crewMembers));
 
     if (tvShow.hlsUrl) {
       const isHttp = tvShow.hlsUrl.startsWith("http://") || tvShow.hlsUrl.startsWith("https://");
@@ -569,20 +560,7 @@ export default function TvShowForm() {
     setIsSaving(true);
     try {
       const effectiveTrailerUrl = trailerUrlType === "local" ? trailerFilePath : trailerUrl;
-      const crewPayload: { director: string; role: string }[] = [];
-      for (const member of crewItems) {
-        if (member.source === "crew") {
-          if (!member.personName?.trim()) continue;
-          const director = await directorIdForCrewCredit({
-            name: member.personName,
-            image: member.personImage,
-            role: member.role,
-          });
-          crewPayload.push({ director, role: member.role });
-        } else if (member.directorId) {
-          crewPayload.push({ director: member.directorId, role: member.role });
-        }
-      }
+      const { crew: crewPayload, crewMembers } = splitTitleCredits(crewItems);
 
       const payload: Record<string, any> = {
         title: title.trim(),
@@ -609,6 +587,7 @@ export default function TvShowForm() {
         duration: duration ? durationToSecs(duration) : undefined,
         releaseDate: releaseDate ? new Date(releaseDate).toISOString() : undefined,
         country: country.trim(),
+        ...(isCountryId(countryId) ? { countryId } : {}),
         producer: producer.trim(),
         studio: studio.trim(),
         ageRating: parseInt(ageRating) || 0,
@@ -624,6 +603,7 @@ export default function TvShowForm() {
           .filter((c) => c.actorId)
           .map((c) => ({ actor: c.actorId, character: c.character, role: c.role })),
         crew: crewPayload,
+        crewMembers,
         hlsUrl: videoUploadType === "local" ? videoFilePath : (videoUrl || videoFilePath),
         videoQualities: qualityEnabled
           ? qualityRows
@@ -1008,10 +988,19 @@ export default function TvShowForm() {
                 <CatalogPicker
                   kind="country"
                   label="Country"
-                  valueField="name"
-                  value={country}
+                  value={countryId || country}
                   fallbackLabel={country}
-                  onChange={(name) => setCountry(String(name || ""))}
+                  onChange={(id, item) => {
+                    const next = String(id || "");
+                    if (!next) { setCountryId(""); setCountry(""); return; }
+                    if (isCountryId(next)) {
+                      setCountryId(next);
+                      setCountry(item?.name || country);
+                    } else {
+                      setCountryId("");
+                      setCountry(item?.name || next);
+                    }
+                  }}
                   placeholder="Select Country"
                 />
                 <div className="space-y-1.5">

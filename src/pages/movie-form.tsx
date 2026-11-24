@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import MediaPicker from "@/components/MediaPicker";
-import CatalogPicker, { crewCatalogKind, directorIdForCrewCredit } from "@/components/CatalogPicker";
+import CatalogPicker, { crewCatalogKind, creditsFromTitle, isCountryId, splitTitleCredits } from "@/components/CatalogPicker";
 import {
   useCreateMovie, useUpdateMovie,
   useGetMovieById, useGetCategoriesList,
@@ -183,6 +183,7 @@ export default function MovieForm() {
   const [duration, setDuration] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
   const [country, setCountry] = useState("");
+  const [countryId, setCountryId] = useState("");
   const [producer, setProducer] = useState("");
   const [studio, setStudio] = useState("");
   const [ageRating, setAgeRating] = useState("0");
@@ -412,7 +413,8 @@ export default function MovieForm() {
     setReleaseDate(
       movie.releaseDate ? new Date(movie.releaseDate).toISOString().split("T")[0] : ""
     );
-    setCountry(movie.country || "");
+    setCountry(typeof movie.country === "string" ? movie.country : movie.country?.name || "");
+    setCountryId(getId(movie.countryId));
     setProducer(movie.producer || "");
     setStudio(movie.studio || "");
     setAgeRating(movie.ageRating != null ? String(movie.ageRating) : "0");
@@ -447,18 +449,7 @@ export default function MovieForm() {
         }))
       );
     }
-    if (Array.isArray(movie.crew)) {
-      setCrewItems(
-        movie.crew.map((c: any, i: number) => ({
-          id: String(i),
-          directorId: getId(c.director),
-          personName: c.director?.name || "",
-          personImage: c.director?.image || "",
-          role: c.role || "Director",
-          source: "director" as const,
-        }))
-      );
-    }
+    setCrewItems(creditsFromTitle(movie.crew, movie.crewMembers));
 
     if (movie.hlsUrl) {
       const isHttp = movie.hlsUrl.startsWith("http://") || movie.hlsUrl.startsWith("https://");
@@ -566,20 +557,7 @@ export default function MovieForm() {
     setIsSaving(true);
     try {
       const effectiveTrailerUrl = trailerUrlType === "local" ? trailerFilePath : trailerUrl;
-      const crewPayload: { director: string; role: string }[] = [];
-      for (const member of crewItems) {
-        if (member.source === "crew") {
-          if (!member.personName?.trim()) continue;
-          const director = await directorIdForCrewCredit({
-            name: member.personName,
-            image: member.personImage,
-            role: member.role,
-          });
-          crewPayload.push({ director, role: member.role });
-        } else if (member.directorId) {
-          crewPayload.push({ director: member.directorId, role: member.role });
-        }
-      }
+      const { crew: crewPayload, crewMembers } = splitTitleCredits(crewItems);
 
       const payload: Record<string, any> = {
         title: title.trim(),
@@ -607,6 +585,7 @@ export default function MovieForm() {
         duration: duration ? durationToSecs(duration) : undefined,
         releaseDate: releaseDate ? new Date(releaseDate).toISOString() : undefined,
         country: country.trim(),
+        ...(isCountryId(countryId) ? { countryId } : {}),
         producer: producer.trim(),
         studio: studio.trim(),
         ageRating: parseInt(ageRating) || 0,
@@ -620,6 +599,7 @@ export default function MovieForm() {
           .filter((c) => c.actorId)
           .map((c) => ({ actor: c.actorId, character: c.character, role: c.role })),
         crew: crewPayload,
+        crewMembers,
         hlsUrl: videoUploadType === "local" ? videoFilePath : (videoUrl || videoFilePath),
         videoQualities: qualityEnabled
           ? qualityRows
@@ -1011,10 +991,19 @@ export default function MovieForm() {
                 <CatalogPicker
                   kind="country"
                   label="Country"
-                  valueField="name"
-                  value={country}
+                  value={countryId || country}
                   fallbackLabel={country}
-                  onChange={(name) => setCountry(String(name || ""))}
+                  onChange={(id, item) => {
+                    const next = String(id || "");
+                    if (!next) { setCountryId(""); setCountry(""); return; }
+                    if (isCountryId(next)) {
+                      setCountryId(next);
+                      setCountry(item?.name || country);
+                    } else {
+                      setCountryId("");
+                      setCountry(item?.name || next);
+                    }
+                  }}
                   placeholder="Select Country"
                 />
                 <div className="space-y-1.5">

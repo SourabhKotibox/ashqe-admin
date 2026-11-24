@@ -14,8 +14,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import MediaPicker from "@/components/MediaPicker";
 import {
   createActor, createCountry, createCrew, createDirector, createGenre, createLanguage,
-  getActors, getCountries, getCrews, getDirectors, getGenres, getImageUrl, getLanguagesList,
+  getActorById, getActors, getCountries, getCountryById, getCrewById, getCrews,
+  getDirectorById, getDirectors, getGenreById, getGenres, getImageUrl, getLanguageById, getLanguagesList,
+  useGetMe,
 } from "@/lib/api-client";
+import { hasCatalogPermission, isInfluencerRole } from "@/lib/creator-access";
 
 export type CatalogKind = "language" | "genre" | "actor" | "director" | "country" | "crew";
 
@@ -81,23 +84,42 @@ function entityFromResponse(res: any, fallbackName: string): CatalogItem | null 
   return { id, name: String(raw?.name || fallbackName).trim() || fallbackName };
 }
 
-/** A duplicate name comes back as 409 with the existing record's id. */
+const OBJECT_ID = /^[a-fA-F0-9]{24}$/;
+
+/** Duplicate name or language/country code: `{ existingId, data: { id, name } }`. */
 export function existingFromConflict(error: any, fallbackName: string): CatalogItem | null {
   const status = error?.status || error?.details?.status;
   if (status !== 409) return null;
   const details = error?.details || {};
-  return entityFromResponse(details, fallbackName) || entityFromResponse(details.data, fallbackName);
+  const data = details.data || {};
+  const id = String(details.existingId || data.existingId || data.id || data._id || details.id || "").trim();
+  if (!id) return entityFromResponse(details, fallbackName);
+  const name = String(data.name || details.name || fallbackName).trim() || fallbackName;
+  return { id, name, code: data.code ? String(data.code) : undefined, image: data.image ? String(data.image) : undefined };
+}
+
+async function fetchCatalogById(kind: CatalogKind, id: string): Promise<CatalogItem | null> {
+  if (!OBJECT_ID.test(id)) return null;
+  let res: any;
+  if (kind === "language") res = await getLanguageById(id);
+  else if (kind === "genre") res = await getGenreById(id);
+  else if (kind === "actor") res = await getActorById(id);
+  else if (kind === "director") res = await getDirectorById(id);
+  else if (kind === "country") res = await getCountryById(id);
+  else res = await getCrewById(id);
+  return entityFromResponse(res, "");
 }
 
 async function fetchCatalog(kind: CatalogKind, search: string): Promise<CatalogItem[]> {
   const query = search.trim();
   let res: any;
   if (kind === "language") res = await getLanguagesList(query ? { search: query } : undefined);
-  else if (kind === "genre") res = await getGenres({ page: 1, limit: 100, admin: true, search: query || undefined });
-  else if (kind === "actor") res = await getActors({ page: 1, limit: 100, search: query || undefined });
-  else if (kind === "director") res = await getDirectors({ page: 1, limit: 100, search: query || undefined });
+  // admin=true is a public filter flag: signed-in creators receive every genre, including inactive ones.
+  else if (kind === "genre") res = await getGenres({ page: 1, limit: 200, admin: true, search: query || undefined });
+  else if (kind === "actor") res = await getActors({ page: 1, limit: 200, search: query || undefined });
+  else if (kind === "director") res = await getDirectors({ page: 1, limit: 200, search: query || undefined });
   else if (kind === "country") res = await getCountries({ page: 1, limit: 200, search: query || undefined });
-  else res = await getCrews({ page: 1, limit: 100, search: query || undefined });
+  else res = await getCrews({ page: 1, limit: 200, search: query || undefined });
 
   const items = listFromResponse(res).map(toItem).filter(Boolean) as CatalogItem[];
   const q = query.toLowerCase();
@@ -171,17 +193,51 @@ async function createCatalogItem(
   }
 }
 
-/**
- * Crew credits are stored on the movie as director ids. A newly added crew
- * member is also created as a director (duplicate names return the existing id)
- * so the credit survives on the current movie and series payload.
- */
-export async function directorIdForCrewCredit(person: { name?: string; image?: string; role?: string }) {
-  const name = person.name?.trim();
-  if (!name) throw new Error("Crew member name is missing.");
-  const created = await createCatalogItem("director", name, person.image || "", person.role || "Crew");
-  rememberCreated("director", created.item);
-  return created.item.id;
+export type TitleCredit = {
+  id: string;
+  directorId: string;
+  role: string;
+  personName?: string;
+  personImage?: string;
+  source?: "director" | "crew";
+};
+
+const personId = (value: any) => String(value?._id || value?.id || (typeof value === "string" ? value : "") || "").trim();
+
+/** Directors stay on `crew`. Crew-catalog people stay on `crewMembers` and are not copied into directors. */
+export function splitTitleCredits(items: TitleCredit[]) {
+  const crew: { director: string; role: string }[] = [];
+  const crewMembers: { crew: string; role: string }[] = [];
+  for (const member of items) {
+    if (!member.directorId) continue;
+    if (member.source === "crew") crewMembers.push({ crew: member.directorId, role: member.role });
+    else crew.push({ director: member.directorId, role: member.role });
+  }
+  return { crew, crewMembers };
+}
+
+export function creditsFromTitle(crew: any[] | undefined, crewMembers: any[] | undefined): TitleCredit[] {
+  const directors = (Array.isArray(crew) ? crew : []).map((entry, index) => ({
+    id: `director-${index}`,
+    directorId: personId(entry?.director || entry),
+    personName: entry?.director?.name || "",
+    personImage: entry?.director?.image || "",
+    role: entry?.role || "Director",
+    source: "director" as const,
+  }));
+  const members = (Array.isArray(crewMembers) ? crewMembers : []).map((entry, index) => ({
+    id: `member-${index}`,
+    directorId: personId(entry?.crew || entry?.person || entry),
+    personName: entry?.crew?.name || entry?.person?.name || entry?.name || "",
+    personImage: entry?.crew?.image || entry?.person?.image || "",
+    role: entry?.role || "Editor",
+    source: "crew" as const,
+  }));
+  return [...directors, ...members].filter((row) => row.directorId);
+}
+
+export function isCountryId(value: string) {
+  return OBJECT_ID.test(value);
 }
 
 type CatalogPickerProps = {
@@ -227,6 +283,10 @@ export default function CatalogPicker({
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
   const [localItems, setLocalItems] = useState<CatalogItem[]>(() => createdCache.get(kind) || []);
+  const { data: me, isLoading: meLoading } = useGetMe();
+  const influencer = isInfluencerRole(me);
+  const canView = !influencer || hasCatalogPermission(me, kind, "canView");
+  const canCreate = !influencer || hasCatalogPermission(me, kind, "canCreate");
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(search.trim()), 250);
@@ -238,6 +298,7 @@ export default function CatalogPicker({
     queryFn: () => fetchCatalog(kind, debounced),
     placeholderData: keepPreviousData,
     staleTime: 15_000,
+    enabled: !meLoading && canView,
   });
 
   const selectedValues = useMemo(() => (multiple ? (value as string[]) : (value ? [value as string] : [])), [multiple, value]);
@@ -252,6 +313,29 @@ export default function CatalogPicker({
   }, [localItems, query.data, kind, valueField]);
 
   const itemValue = (item: CatalogItem) => (valueField === "name" ? item.name : item.id);
+
+  const selectedKey = selectedValues.join("|");
+  useEffect(() => {
+    if (!canView || valueField === "name" || query.isLoading) return;
+    const missing = selectedValues.filter((selected) => OBJECT_ID.test(selected) && !items.some((item) => item.id === selected));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const id of missing) {
+        try {
+          const fetched = await fetchCatalogById(kind, id);
+          if (!fetched || cancelled) continue;
+          rememberCreated(kind, fetched);
+          setLocalItems((prev) => [fetched, ...prev.filter((entry) => entry.id !== fetched.id)]);
+        } catch {
+          /* The id stays selected even when the lookup fails. */
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // items is read to skip ids already loaded; local state updates settle the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey, kind, canView, valueField, query.isLoading]);
 
   const labelFor = (selected: string) => {
     const found = items.find((item) => itemValue(item) === selected);
@@ -300,11 +384,21 @@ export default function CatalogPicker({
     setFormError("");
     try {
       const created = await createCatalogItem(kind, name, draftImage, designation);
-      adopt(created.item);
+      let selected = created.item;
+      const alreadyListed = items.some((item) => item.id === selected.id);
+      if (created.reused && !alreadyListed) {
+        try {
+          const fetched = await fetchCatalogById(kind, selected.id);
+          if (fetched) selected = { ...fetched, name: fetched.name || selected.name };
+        } catch {
+          /* The 409 body still has existingId and, usually, data.name. */
+        }
+      }
+      adopt(selected);
       setAddOpen(false);
       setDraftName("");
       setDraftImage("");
-      setNotice(created.reused ? `"${created.item.name}" already exists, so the existing entry was selected.` : "");
+      setNotice(created.reused ? `"${selected.name}" already exists, so that entry was selected.` : "");
     } catch (error: any) {
       setFormError(error?.message || `Could not add ${KIND_LABEL[kind]}.`);
     } finally {
@@ -379,6 +473,7 @@ export default function CatalogPicker({
                 </>
               )}
             </CommandList>
+            {canCreate && (
             <div className="border-t border-border p-1">
               <button
                 type="button"
@@ -395,10 +490,14 @@ export default function CatalogPicker({
                 Add new {KIND_LABEL[kind]}
               </button>
             </div>
+            )}
           </Command>
         </PopoverContent>
       </Popover>
 
+      {!meLoading && influencer && !canView && (
+        <p className="text-xs text-rose-400">You don't have access to {KIND_LABEL[kind]}s.</p>
+      )}
       {loadError && (
         <p className="text-xs text-rose-400">
           {loadError?.message || `Could not load ${KIND_LABEL[kind]}s.`}
@@ -465,7 +564,8 @@ export default function CatalogPicker({
           open={photoOpen}
           onClose={() => setPhotoOpen(false)}
           onSelect={(media) => {
-            setDraftImage(media.filePath || "");
+            const url = typeof media.url === "string" && media.url.startsWith("http") ? media.url : "";
+            setDraftImage(url || media.filePath || "");
             setPhotoOpen(false);
           }}
           source={kind === "actor" ? "actor" : kind === "director" ? "director" : "crew"}
