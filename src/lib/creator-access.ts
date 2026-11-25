@@ -1,6 +1,7 @@
 /** Console paths an approved creator (`role === "influencer"`) may open. */
 export const CREATOR_ROUTE_PREFIXES = [
   "/dashboard",
+  "/earnings",
   "/media-library",
   "/movies",
   "/tv-shows",
@@ -8,6 +9,34 @@ export const CREATOR_ROUTE_PREFIXES = [
   "/seasons",
   "/profile",
 ];
+
+/**
+ * Creator earnings live on `/earnings` for every influencer.
+ * `creatorRevenue` is the staff permission for the admin overview and rate edits.
+ * The API rejects influencer tokens on `/api/admin/creator-revenue/*`.
+ */
+export const CREATOR_EARNINGS_PATH = "/earnings";
+export const ADMIN_CREATOR_REVENUE_PATH = "/creator-revenue";
+
+type RevenuePermissionUser = {
+  role?: string;
+  modulePermissions?: {
+    creatorRevenue?: { canView?: boolean; canEdit?: boolean };
+  } | null;
+} | null | undefined;
+
+export function canViewCreatorRevenueAdmin(user: RevenuePermissionUser) {
+  if (!user || user.role === "influencer") return false;
+  if (user.role === "superadmin" || user.role === "admin") return true;
+  const perms = user.modulePermissions?.creatorRevenue;
+  return Boolean(perms?.canView || perms?.canEdit);
+}
+
+export function canEditCreatorRevenue(user: RevenuePermissionUser) {
+  if (!user || user.role === "influencer") return false;
+  if (user.role === "superadmin") return true;
+  return Boolean(user.modulePermissions?.creatorRevenue?.canEdit);
+}
 
 export function isInfluencerRole(user: { role?: string } | null | undefined) {
   return user?.role === "influencer";

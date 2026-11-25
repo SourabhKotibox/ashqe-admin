@@ -56,7 +56,13 @@ const defaultModulePermissions = {
   notificationTemplates: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   settings: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   reviews: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  creatorRevenue: { canView: false, canCreate: false, canEdit: false, canDelete: false },
 };
+
+function modulePermissionLabel(module: string) {
+  if (module === "creatorRevenue") return "Creator revenue";
+  return module;
+}
 
 export default function InfluencersPage() {
   const [location, setLocation] = useLocation();
@@ -520,8 +526,13 @@ export default function InfluencersPage() {
 
                 {Object.keys(defaultModulePermissions).map((module) => (
                   <div key={module} className="space-y-2 p-4 rounded-lg border border-border bg-muted/20">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground capitalize">{module}</span>
+                    <div>
+                      <span className="font-medium text-foreground capitalize">{modulePermissionLabel(module)}</span>
+                      {module === "creatorRevenue" && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Staff who are not admins need View to open Creator Revenue. Edit lets them change the default and a creator&apos;s rate. Admins can already view. Super admins can already edit.
+                        </p>
+                      )}
                     </div>
                     <div className="grid grid-cols-4 gap-4">
                       {module === 'mediaLibrary' ? (
@@ -735,8 +746,13 @@ export default function InfluencersPage() {
 
                 {Object.keys(defaultModulePermissions).map((module) => (
                   <div key={module} className="space-y-2 p-4 rounded-lg border border-border bg-muted/20">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground capitalize">{module}</span>
+                    <div>
+                      <span className="font-medium text-foreground capitalize">{modulePermissionLabel(module)}</span>
+                      {module === "creatorRevenue" && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Staff who are not admins need View to open Creator Revenue. Edit lets them change the default and a creator&apos;s rate. Admins can already view. Super admins can already edit.
+                        </p>
+                      )}
                     </div>
                     <div className="grid grid-cols-4 gap-4">
                       {module === 'mediaLibrary' ? (

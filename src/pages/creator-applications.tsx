@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Check, Copy, ExternalLink, Loader2, Search, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useGetMe } from "@/lib/api-client";
+import { canViewCreatorRevenueAdmin } from "@/lib/creator-access";
 import {
   applicationIdOf, fmtDateTime, useAdminCreatorApplication, useAdminCreatorApplications,
   useApproveCreatorApplication, useRejectCreatorApplication,
 } from "@/lib/creator-api";
+import { formatRate, useCreatorRate, useDefaultCreatorRate } from "@/lib/creator-revenue";
+import { SourceBadge } from "@/components/creator-revenue-ui";
 
 const BADGE: Record<string, string> = {
   pending: "bg-amber-500/15 text-amber-500",
@@ -203,13 +208,17 @@ export default function CreatorApplicationsPage() {
           {detail.isLoading && !application ? (
             <div className="py-8 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
           ) : application && mode === "view" && (
-            <ApplicationDetail application={application} />
+            <div className="space-y-4">
+              <ApplicationDetail application={application} />
+              <ApprovedCreatorRate application={application} />
+            </div>
           )}
           {mode === "approve" && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 This creates a creator account for {application?.email}. The temporary password is shown once after approval so you can share it if email is not configured.
               </p>
+              <DefaultRateOnApproval />
               <div>
                 <Label>Internal notes (optional)</Label>
                 <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Visible to admins only" />
@@ -263,6 +272,63 @@ export default function CreatorApplicationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function creatorIdFrom(application: any) {
+  const ref = application?.adminUserId;
+  if (!ref) return "";
+  if (typeof ref === "string") return ref;
+  return String(ref.id || ref._id || "");
+}
+
+function DefaultRateOnApproval() {
+  const { data: me } = useGetMe();
+  const canView = canViewCreatorRevenueAdmin(me);
+  const rate = useDefaultCreatorRate(canView);
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+      <p className="font-medium">Starting watch-hour rate</p>
+      {canView && rate.isLoading ? (
+        <p className="mt-1 text-muted-foreground">Loading the current default…</p>
+      ) : canView && rate.data?.data ? (
+        <p className="mt-1 text-muted-foreground">
+          This creator starts at {formatRate(rate.data.data.rateInrPerHour)}, the current global default. Approval does not copy a personal rate. Later default changes still apply until someone sets an override, and only to watch time credited after the change.
+        </p>
+      ) : (
+        <p className="mt-1 text-muted-foreground">
+          A new creator starts on the global default watch-hour rate. Approval does not set a personal rate.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ApprovedCreatorRate({ application }: { application: any }) {
+  const { data: me } = useGetMe();
+  const canView = canViewCreatorRevenueAdmin(me);
+  const creatorId = creatorIdFrom(application);
+  const enabled = canView && application?.status === "approved" && !!creatorId;
+  const rate = useCreatorRate(creatorId, enabled);
+  if (!enabled) return null;
+  const payload = rate.data?.data;
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-medium">Watch-hour rate</p>
+        {payload && <SourceBadge source={payload.source} />}
+      </div>
+      {rate.isLoading ? (
+        <p className="mt-1 text-muted-foreground">Loading this creator&apos;s rate…</p>
+      ) : rate.isError ? (
+        <p className="mt-1 text-muted-foreground">The rate could not be loaded.</p>
+      ) : payload ? (
+        <p className="mt-1 text-muted-foreground">
+          {formatRate(payload.rateInrPerHour)}. The global default is {formatRate(payload.defaultRate.rateInrPerHour)}.{" "}
+          <Link href="/creator-revenue" className="text-primary underline-offset-2 hover:underline">Open Creator Revenue</Link>
+        </p>
+      ) : null}
     </div>
   );
 }

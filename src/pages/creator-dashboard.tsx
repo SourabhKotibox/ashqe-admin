@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Clapperboard, Eye, Film, HardDrive, Library, Loader2, Tv, Upload } from "lucide-react";
+import { Clapperboard, Eye, Film, HardDrive, IndianRupee, Library, Loader2, Tv, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBytes, fmtDateTime, useCreatorDashboard } from "@/lib/creator-api";
@@ -68,6 +68,9 @@ export default function CreatorDashboard() {
           </Button>
           <Button variant="outline" onClick={() => setLocation("/tv-shows/new")} className="gap-2">
             <Tv className="w-4 h-4" /> Upload Web Series
+          </Button>
+          <Button variant="outline" onClick={() => setLocation("/earnings")} className="gap-2">
+            <IndianRupee className="w-4 h-4" /> Revenue
           </Button>
           <Button variant="outline" onClick={() => setLocation("/media-library")} className="gap-2">
             <Library className="w-4 h-4" /> Media Library

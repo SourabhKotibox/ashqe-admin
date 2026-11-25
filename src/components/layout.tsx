@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { isCreatorConsolePath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
+import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, isCreatorConsolePath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
 import { ForcePasswordChange } from "@/components/force-password-change";
 import { Link, useLocation } from "wouter";
 import {
@@ -48,6 +48,7 @@ import {
   MessageSquare,
   TrendingUp,
   Handshake,
+  IndianRupee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -80,6 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       label: t('nav.main'),
       items: [
         { href: "/dashboard", label: t('nav.dashboard'), icon: Home, permission: null },
+        { href: CREATOR_EARNINGS_PATH, label: "Revenue", icon: IndianRupee, permission: null },
         { href: "/media-library", label: t('nav.mediaLibrary'), icon: Image, permission: "mediaLibrary" },
         { href: "/home-sections", label: "App Layout Builder", icon: LayoutList, permission: "categories" },
         { href: "/web-home-sections", label: "Web Layout Builder", icon: LayoutList, permission: "categories" },
@@ -92,6 +94,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: "/users", label: t('nav.users'), icon: Users, permission: "subscriptions" },
         { href: "/influencers", label: "Role-Based Access", icon: Shield, permission: "influencers" },
         { href: "/creator-applications", label: "Creator Applications", icon: Clapperboard, permission: "influencers" },
+        { href: ADMIN_CREATOR_REVENUE_PATH, label: "Creator Revenue", icon: IndianRupee, permission: "creatorRevenue" },
         { href: "/approvals", label: "Approvals", icon: CheckCircle, permission: "movies" },
       ],
     },
@@ -201,6 +204,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const mustChangePassword = user?.mustChangePassword === true || (readMustChangePasswordFlag() && user?.mustChangePassword !== false);
 
   const hasPermission = (permission: string | null, href?: string): boolean => {
+    if (href === CREATOR_EARNINGS_PATH) return isInfluencerRole(user);
+    if (href === ADMIN_CREATOR_REVENUE_PATH) return canViewCreatorRevenueAdmin(user);
+
     // Super admin has all permissions
     if (user?.role === "superadmin") return true;
     
