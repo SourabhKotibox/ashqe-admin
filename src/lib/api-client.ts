@@ -862,10 +862,12 @@ export const bulkDeleteCategories = async (ids) => {
 };
 
 // Hooks
-export const useGetCategoriesList = (options = {}) => {
+export const useGetCategoriesList = (options: { enabled?: boolean; [key: string]: any } = {}) => {
+  const { enabled = true, ...query } = options;
   return useQuery({
-    queryKey: ["categories-list", options],
-    queryFn: () => getCategoriesList(options),
+    queryKey: ["categories-list", query],
+    queryFn: () => getCategoriesList(query),
+    enabled,
   });
 };
 
@@ -2041,10 +2043,12 @@ export const bulkDeleteSubscriptionPlans = async (ids: string[]) => {
   });
 };
 
-export const useGetSubscriptionPlans = (options?: { page?: number; limit?: number }) => {
+export const useGetSubscriptionPlans = (options?: { page?: number; limit?: number; enabled?: boolean }) => {
+  const { enabled = true, ...query } = options || {};
   return useQuery({
-    queryKey: ['subscriptionPlans', options],
-    queryFn: () => getSubscriptionPlans(options)
+    queryKey: ['subscriptionPlans', query],
+    queryFn: () => getSubscriptionPlans(query),
+    enabled,
   });
 };
 
@@ -3399,11 +3403,12 @@ export const useBulkDeleteCrews = () => {
   });
 };
 
-export const useGetAdminNotifications = () => {
+export const useGetAdminNotifications = (enabled = true) => {
   return useQuery({
     queryKey: ["admin-notifications"],
     queryFn: () => api("/admin-notifications"),
-    refetchInterval: 30000, // Poll every 30 seconds
+    refetchInterval: enabled ? 30000 : false,
+    enabled,
   });
 };
 

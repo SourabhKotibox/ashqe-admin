@@ -92,9 +92,11 @@ export default function MoviesPage() {
   const [featuredFilter, setFeaturedFilter] = useState("all");
   const [trendingFilter, setTrendingFilter] = useState("all");
 
+  const { data: me, isFetched: meFetched } = useGetMe();
+  const isCreator = me?.role === "influencer";
   const { data: langsData } = useGetLanguagesList();
   const languagesList = langsData?.data || [];
-  const { data: plansData } = useGetSubscriptionPlans({ limit: 100 });
+  const { data: plansData } = useGetSubscriptionPlans({ limit: 100, enabled: meFetched && !isCreator });
   const subscriptionPlans = ((plansData as any)?.data || []).filter(
     (p: any) => p.status !== false && p.status !== "inactive"
   );
@@ -143,8 +145,6 @@ export default function MoviesPage() {
 
   const movies = moviesData?.data || [];
 
-  const { data: me } = useGetMe();
-  const isCreator = me?.role === "influencer";
   const canDelete = isCreator ? !!me?.modulePermissions?.movies?.canDelete : true;
 
   const deleteMutation = useDeleteMovie();

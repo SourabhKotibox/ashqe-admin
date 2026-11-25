@@ -450,7 +450,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ))}
             </SelectContent>
           </Select>
-          <HeaderNotifications />
+          {user && !isInfluencerRole(user) && <HeaderNotifications />}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-muted-foreground">
@@ -588,7 +588,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 ))}
               </SelectContent>
             </Select>
-            <HeaderNotifications />
+            {user && !isInfluencerRole(user) && <HeaderNotifications />}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="outline-none ring-0 focus:ring-0">
