@@ -1,4 +1,9 @@
-/** Console paths an approved creator (`role === "influencer"`) may open. */
+/**
+ * Console paths an approved creator (`role === "influencer"`) may open.
+ * Keep this aligned with `user.sections` from GET /api/auth/me. The API derives
+ * that list from the influencer role (dashboard, media library, movies, TV shows,
+ * languages, genres, actors, directors, crew, countries).
+ */
 export const CREATOR_ROUTE_PREFIXES = [
   "/dashboard",
   "/media-library",
@@ -6,6 +11,12 @@ export const CREATOR_ROUTE_PREFIXES = [
   "/tv-shows",
   "/episodes",
   "/seasons",
+  "/languages",
+  "/genres",
+  "/actors",
+  "/directors",
+  "/crew",
+  "/countries",
   "/profile",
 ];
 
