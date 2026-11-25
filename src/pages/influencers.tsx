@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useGetAdminUsers, useCreateAdminUser, useUpdateAdminUser, useDeleteAdminUser, useResetAdminUserPassword, useToggleAdminUserStatus, useGetEmailStatus } from "@/lib/api-client";
+import { cloneCreatorModulePermissions } from "@/lib/creator-access";
 
 interface Influencer {
   id: string;
@@ -32,6 +33,17 @@ interface Influencer {
   };
   createdAt: string;
   createdBy?: { name: string; email: string };
+}
+
+function CreatorPackNotice() {
+  return (
+    <div className="space-y-2 pt-4 border-t border-border">
+      <h3 className="font-semibold text-foreground">Creator access</h3>
+      <p className="text-sm text-muted-foreground">
+        Influencers automatically get the creator panel: Dashboard, Media Library, Movies, Web Series, and catalogs (Languages, Genres, Actors, Directors, Crew, and Countries). Those sections are part of the role, so they are not assigned one by one. Other admin sections stay off.
+      </p>
+    </div>
+  );
 }
 
 const defaultModulePermissions = {
@@ -150,7 +162,12 @@ export default function InfluencersPage() {
     try {
       await updateMutation.mutateAsync({
         id: selectedInfluencer.id,
-        data: editForm
+        data: {
+          ...editForm,
+          modulePermissions: editForm.role === "influencer"
+            ? cloneCreatorModulePermissions()
+            : editForm.modulePermissions,
+        },
       });
       toast({ title: "User updated successfully" });
       setIsEditModalOpen(false);
@@ -209,7 +226,12 @@ export default function InfluencersPage() {
     }
 
     try {
-      const result = await createMutation.mutateAsync(createForm);
+      const result = await createMutation.mutateAsync({
+        ...createForm,
+        modulePermissions: createForm.role === "influencer"
+          ? cloneCreatorModulePermissions()
+          : createForm.modulePermissions,
+      });
       setIsCreateModalOpen(false);
 
       // Show credentials modal with the generated password
@@ -515,6 +537,9 @@ export default function InfluencersPage() {
                 </Select>
               </div>
 
+              {createForm.role === "influencer" ? (
+                <CreatorPackNotice />
+              ) : (
               <div className="space-y-4 pt-4 border-t border-border">
                 <h3 className="font-semibold text-foreground">Module Permissions</h3>
 
@@ -654,6 +679,7 @@ export default function InfluencersPage() {
                   </div>
                 ))}
               </div>
+              )}
             </div>
             <div className="p-6 border-t border-border flex justify-end gap-3">
               <Button
@@ -730,6 +756,9 @@ export default function InfluencersPage() {
                 </Select>
               </div>
 
+              {editForm.role === "influencer" ? (
+                <CreatorPackNotice />
+              ) : (
               <div className="space-y-4 pt-4 border-t border-border">
                 <h3 className="font-semibold text-foreground">Module Permissions</h3>
 
@@ -869,6 +898,7 @@ export default function InfluencersPage() {
                   </div>
                 ))}
               </div>
+              )}
             </div>
             <div className="p-6 border-t border-border flex justify-end gap-3">
               <Button

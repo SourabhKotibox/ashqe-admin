@@ -169,7 +169,7 @@ import MembershipPage from "@/pages/membership";
 import PartnerProgramPage from "@/pages/partner-program";
 import CreatorProgramPage from "@/pages/creator-program";
 import CreatorApplicationsPage from "@/pages/creator-applications";
-import { isCreatorConsolePath, isInfluencerRole } from "@/lib/creator-access";
+import { influencerMayOpenPath, isInfluencerRole } from "@/lib/creator-access";
 import AdminPartnersPage from "@/pages/admin-partners";
 import AdminPartnerDetailPage from "@/pages/admin-partner-detail";
 import { captureReferralFromUrl } from "@/lib/partner-api";
@@ -243,7 +243,7 @@ const routePermissions: Record<string, string | null> = {
 
 const hasPermissionForRoute = (path: string, user: any): boolean => {
   if (user?.role === "superadmin") return true;
-  if (isInfluencerRole(user) && !isCreatorConsolePath(path)) return false;
+  if (isInfluencerRole(user)) return influencerMayOpenPath(path);
   
   // Find matching route (check exact first, then prefixes)
   let permission: string | null = null;

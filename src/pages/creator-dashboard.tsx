@@ -75,6 +75,21 @@ export default function CreatorDashboard() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {([
+          ["/languages", "Languages"],
+          ["/genres", "Genres"],
+          ["/actors", "Actors"],
+          ["/directors", "Directors"],
+          ["/crew", "Crew"],
+          ["/countries", "Countries"],
+        ] as const).map(([href, label]) => (
+          <Button key={href} variant="outline" size="sm" onClick={() => setLocation(href)}>
+            {label}
+          </Button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat icon={Film} label="Movies" value={movies.total} hint={`${movies.published} published`} />
         <Stat icon={Tv} label="Web series" value={shows.total} hint={`${shows.published} published`} />
