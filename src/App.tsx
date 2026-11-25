@@ -243,7 +243,10 @@ const routePermissions: Record<string, string | null> = {
 
 const hasPermissionForRoute = (path: string, user: any): boolean => {
   if (user?.role === "superadmin") return true;
-  if (isInfluencerRole(user)) return influencerMayOpenPath(path);
+  if (isInfluencerRole(user)) {
+    const sections = Array.isArray(user?.sections) ? user.sections : undefined;
+    return influencerMayOpenPath(path, sections);
+  }
   
   // Find matching route (check exact first, then prefixes)
   let permission: string | null = null;

@@ -207,7 +207,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     // Creators see the influencer pack (dashboard, media, movies, web series,
     // and their catalogs). Other sections stay hidden. Staff checks are unchanged.
     if (isInfluencerRole(user)) {
-      return href ? influencerMayOpenPath(href) : !permission;
+      const sections = Array.isArray(user?.sections) ? user.sections as string[] : undefined;
+      return href ? influencerMayOpenPath(href, sections) : !permission;
     }
     
     // If no permission required, show it

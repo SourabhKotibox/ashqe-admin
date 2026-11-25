@@ -49,23 +49,27 @@ export function cloneCreatorModulePermissions() {
 
 /**
  * Console paths an approved creator (`role === "influencer"`) may open.
- * `module` is the pack key. Crew uses `directors` (there is no crews key).
- * Null means the path is part of the creator console and is not module-gated.
+ * `section` matches `user.sections` from GET /api/auth/me
+ * (dashboard, mediaLibrary, movies, tvShows, languages, genres, actors,
+ * directors, crew, countries). Seasons and episodes share tvShows.
+ * `module` is the permission-pack key. Crew has its own section id and uses
+ * the directors module (there is no crews permission key).
+ * A null section is part of the console (profile) and is not listed in `user.sections`.
  */
-export const CREATOR_ROUTES: { prefix: string; module: string | null }[] = [
-  { prefix: "/dashboard", module: null },
-  { prefix: "/profile", module: null },
-  { prefix: "/media-library", module: "mediaLibrary" },
-  { prefix: "/movies", module: "movies" },
-  { prefix: "/tv-shows", module: "tvShows" },
-  { prefix: "/episodes", module: "tvShows" },
-  { prefix: "/seasons", module: "tvShows" },
-  { prefix: "/languages", module: "languages" },
-  { prefix: "/genres", module: "genres" },
-  { prefix: "/actors", module: "actors" },
-  { prefix: "/directors", module: "directors" },
-  { prefix: "/crew", module: "directors" },
-  { prefix: "/countries", module: "countries" },
+export const CREATOR_ROUTES: { prefix: string; module: string | null; section: string | null }[] = [
+  { prefix: "/dashboard", module: null, section: "dashboard" },
+  { prefix: "/profile", module: null, section: null },
+  { prefix: "/media-library", module: "mediaLibrary", section: "mediaLibrary" },
+  { prefix: "/movies", module: "movies", section: "movies" },
+  { prefix: "/tv-shows", module: "tvShows", section: "tvShows" },
+  { prefix: "/episodes", module: "tvShows", section: "tvShows" },
+  { prefix: "/seasons", module: "tvShows", section: "tvShows" },
+  { prefix: "/languages", module: "languages", section: "languages" },
+  { prefix: "/genres", module: "genres", section: "genres" },
+  { prefix: "/actors", module: "actors", section: "actors" },
+  { prefix: "/directors", module: "directors", section: "directors" },
+  { prefix: "/crew", module: "directors", section: "crew" },
+  { prefix: "/countries", module: "countries", section: "countries" },
 ];
 
 export const CREATOR_ROUTE_PREFIXES = CREATOR_ROUTES.map((route) => route.prefix);
@@ -106,11 +110,15 @@ export function catalogModuleKey(kind: CatalogPermissionKind) {
  * Influencers are checked against the catalog key above.
  * Other roles keep the existing form behavior; the API still enforces their module flags.
  */
-/** Pack module for a creator console path. Undefined means the path is outside the creator console. */
-export function creatorModuleForPath(path: string): string | null | undefined {
-  const match = CREATOR_ROUTES
+function matchCreatorRoute(path: string) {
+  return CREATOR_ROUTES
     .filter((route) => path === route.prefix || path.startsWith(`${route.prefix}/`))
     .sort((a, b) => b.prefix.length - a.prefix.length)[0];
+}
+
+/** Pack module for a creator console path. Undefined means the path is outside the creator console. */
+export function creatorModuleForPath(path: string): string | null | undefined {
+  const match = matchCreatorRoute(path);
   if (!match) return undefined;
   return match.module;
 }
@@ -124,14 +132,18 @@ function packAllows(moduleName: string | null | undefined, ...actions: string[])
 }
 
 /**
- * Influencers open a creator section when the role pack allows it.
- * A partial user payload does not hide those sections, and it does not
- * open anything outside the pack.
+ * Influencers open a creator path when `user.sections` includes it.
+ * When that list is missing, the role pack is the fallback.
+ * Paths outside the creator console stay closed.
  */
-export function influencerMayOpenPath(path: string) {
-  const moduleName = creatorModuleForPath(path);
-  if (moduleName === undefined) return false;
-  return packAllows(moduleName, "canView", "canUpload");
+export function influencerMayOpenPath(path: string, sections?: readonly string[] | null) {
+  const match = matchCreatorRoute(path);
+  if (!match) return false;
+  if (Array.isArray(sections)) {
+    if (match.section == null) return true;
+    return sections.includes(match.section);
+  }
+  return packAllows(match.module, "canView", "canUpload");
 }
 
 export function hasCatalogPermission(user: PermissionUser, kind: CatalogPermissionKind, action: CatalogPermissionAction) {
