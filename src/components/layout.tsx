@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, isCreatorConsolePath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
+import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
 import { ForcePasswordChange } from "@/components/force-password-change";
 import { Link, useLocation } from "wouter";
 import {
@@ -209,6 +209,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     // Super admin has all permissions
     if (user?.role === "superadmin") return true;
+
+    // Creators see the influencer pack (dashboard, media, movies, web series,
+    // and their catalogs). Other sections stay hidden. Staff checks are unchanged.
+    if (isInfluencerRole(user)) {
+      const sections = Array.isArray(user?.sections) ? user.sections as string[] : undefined;
+      return href ? influencerMayOpenPath(href, sections) : !permission;
+    }
     
     // If no permission required, show it
     if (!permission) return true;
@@ -216,8 +223,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     // Check module permissions
     const modulePerms = user?.modulePermissions?.[permission as keyof typeof user.modulePermissions];
     if (!modulePerms) return false;
-    
-    if (isInfluencerRole(user) && href && !isCreatorConsolePath(href)) return false;
 
     // Check if user has at least view permission
     return (modulePerms as any).canView || (modulePerms as any).canUpload;

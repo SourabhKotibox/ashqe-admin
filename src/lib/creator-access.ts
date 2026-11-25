@@ -1,20 +1,80 @@
-/** Console paths an approved creator (`role === "influencer"`) may open. */
-export const CREATOR_ROUTE_PREFIXES = [
-  "/dashboard",
-  "/earnings",
-  "/media-library",
-  "/movies",
-  "/tv-shows",
-  "/episodes",
-  "/seasons",
-  "/profile",
-];
+type ModuleGrant = {
+  canView?: boolean;
+  canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canUpload?: boolean;
+};
+
+const NONE: ModuleGrant = { canView: false, canCreate: false, canEdit: false, canDelete: false };
+const CATALOG: ModuleGrant = { canView: true, canCreate: true, canEdit: true, canDelete: true };
 
 /**
- * Creator earnings live on `/earnings` for every influencer.
- * `creatorRevenue` is the staff permission for the admin overview and rate edits.
- * The API rejects influencer tokens on `/api/admin/creator-revenue/*`.
+ * Permission pack for the influencer role. Mirrors
+ * `CREATOR_MODULE_PERMISSIONS` on ashqe-api-server. Approval grants this pack;
+ * the console uses it so a creator sees these sections even when the login
+ * payload is still missing flags.
+ * Catalog edit/delete stay limited to rows the creator owns.
+ * `creatorRevenue` stays off: influencers use `/earnings`, not the admin overview.
  */
+export const CREATOR_MODULE_PERMISSIONS: Record<string, ModuleGrant> = {
+  users: { ...NONE },
+  movies: { canView: true, canCreate: true, canEdit: true, canDelete: false },
+  tvShows: { canView: true, canCreate: true, canEdit: true, canDelete: false },
+  genres: { ...CATALOG },
+  actors: { ...CATALOG },
+  directors: { ...CATALOG },
+  languages: { ...CATALOG },
+  countries: { ...CATALOG },
+  categories: { ...NONE },
+  mediaLibrary: { canView: true, canUpload: true, canDelete: false },
+  banners: { ...NONE },
+  promotions: { ...NONE },
+  influencers: { ...NONE },
+  ads: { ...NONE },
+  pages: { ...NONE },
+  faqs: { ...NONE },
+  subscriptions: { ...NONE },
+  subscriptionPlans: { ...NONE },
+  planLimits: { ...NONE },
+  notifications: { ...NONE },
+  notificationTemplates: { ...NONE },
+  settings: { ...NONE },
+  reviews: { ...NONE },
+  creatorRevenue: { ...NONE },
+};
+
+/** A copy safe to send when creating or updating a creator account. */
+export function cloneCreatorModulePermissions() {
+  return JSON.parse(JSON.stringify(CREATOR_MODULE_PERMISSIONS)) as Record<string, ModuleGrant>;
+}
+
+/**
+ * Console paths an approved creator (`role === "influencer"`) may open.
+ * `section` matches `user.sections` from GET /api/auth/me.
+ * Seasons and episodes share tvShows. Crew uses the directors module.
+ * A null section (profile) is part of the console and is not listed in `user.sections`.
+ * `earnings` is always open, even when that id is missing from `user.sections`.
+ */
+export const CREATOR_ROUTES: { prefix: string; module: string | null; section: string | null }[] = [
+  { prefix: "/dashboard", module: null, section: "dashboard" },
+  { prefix: "/earnings", module: null, section: "earnings" },
+  { prefix: "/profile", module: null, section: null },
+  { prefix: "/media-library", module: "mediaLibrary", section: "mediaLibrary" },
+  { prefix: "/movies", module: "movies", section: "movies" },
+  { prefix: "/tv-shows", module: "tvShows", section: "tvShows" },
+  { prefix: "/episodes", module: "tvShows", section: "tvShows" },
+  { prefix: "/seasons", module: "tvShows", section: "tvShows" },
+  { prefix: "/languages", module: "languages", section: "languages" },
+  { prefix: "/genres", module: "genres", section: "genres" },
+  { prefix: "/actors", module: "actors", section: "actors" },
+  { prefix: "/directors", module: "directors", section: "directors" },
+  { prefix: "/crew", module: "directors", section: "crew" },
+  { prefix: "/countries", module: "countries", section: "countries" },
+];
+
+export const CREATOR_ROUTE_PREFIXES = CREATOR_ROUTES.map((route) => route.prefix);
+
 export const CREATOR_EARNINGS_PATH = "/earnings";
 export const ADMIN_CREATOR_REVENUE_PATH = "/creator-revenue";
 
@@ -22,6 +82,7 @@ type RevenuePermissionUser = {
   role?: string;
   modulePermissions?: {
     creatorRevenue?: { canView?: boolean; canEdit?: boolean };
+    influencers?: { canView?: boolean };
   } | null;
 } | null | undefined;
 
@@ -36,6 +97,13 @@ export function canEditCreatorRevenue(user: RevenuePermissionUser) {
   if (!user || user.role === "influencer") return false;
   if (user.role === "superadmin") return true;
   return Boolean(user.modulePermissions?.creatorRevenue?.canEdit);
+}
+
+/** Staff profile of a creator: admins, or staff who can view applications or revenue. */
+export function canViewCreatorProfile(user: RevenuePermissionUser) {
+  if (!user || user.role === "influencer") return false;
+  if (user.role === "superadmin" || user.role === "admin") return true;
+  return Boolean(user.modulePermissions?.influencers?.canView || canViewCreatorRevenueAdmin(user));
 }
 
 export function isInfluencerRole(user: { role?: string } | null | undefined) {
@@ -70,6 +138,43 @@ export function catalogModuleKey(kind: CatalogPermissionKind) {
   return CATALOG_MODULE_KEYS[kind];
 }
 
+function matchCreatorRoute(path: string) {
+  return CREATOR_ROUTES
+    .filter((route) => path === route.prefix || path.startsWith(`${route.prefix}/`))
+    .sort((a, b) => b.prefix.length - a.prefix.length)[0];
+}
+
+/** Pack module for a creator console path. Undefined means the path is outside the creator console. */
+export function creatorModuleForPath(path: string): string | null | undefined {
+  const match = matchCreatorRoute(path);
+  if (!match) return undefined;
+  return match.module;
+}
+
+function packAllows(moduleName: string | null | undefined, ...actions: string[]) {
+  if (moduleName == null) return true;
+  const grant = CREATOR_MODULE_PERMISSIONS[moduleName];
+  if (!grant) return false;
+  const needed = actions.length > 0 ? actions : ["canView", "canUpload"];
+  return needed.some((action) => Boolean(grant[action as keyof ModuleGrant]));
+}
+
+/**
+ * Influencers open a creator path when `user.sections` includes it.
+ * When that list is missing, the role pack is the fallback.
+ * Revenue (`earnings`) is always included. Paths outside the creator console stay closed.
+ */
+export function influencerMayOpenPath(path: string, sections?: readonly string[] | null) {
+  const match = matchCreatorRoute(path);
+  if (!match) return false;
+  if (match.section === "earnings") return true;
+  if (Array.isArray(sections)) {
+    if (match.section == null) return true;
+    return sections.includes(match.section);
+  }
+  return packAllows(match.module, "canView", "canUpload");
+}
+
 /**
  * Influencers are checked against the catalog key above.
  * Other roles keep the existing form behavior; the API still enforces their module flags.
@@ -78,7 +183,10 @@ export function hasCatalogPermission(user: PermissionUser, kind: CatalogPermissi
   if (!user) return false;
   if (user.role === "superadmin") return true;
   if (!isInfluencerRole(user)) return true;
-  return Boolean(user.modulePermissions?.[CATALOG_MODULE_KEYS[kind]]?.[action]);
+  const moduleName = CATALOG_MODULE_KEYS[kind];
+  const fromPack = Boolean(CREATOR_MODULE_PERMISSIONS[moduleName]?.[action]);
+  const fromPayload = Boolean(user.modulePermissions?.[moduleName]?.[action]);
+  return fromPack || fromPayload;
 }
 
 /** Creators may edit or delete a catalog row only when `createdBy` is their own id. */

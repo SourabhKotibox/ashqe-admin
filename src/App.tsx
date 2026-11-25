@@ -169,7 +169,7 @@ import MembershipPage from "@/pages/membership";
 import PartnerProgramPage from "@/pages/partner-program";
 import CreatorProgramPage from "@/pages/creator-program";
 import CreatorApplicationsPage from "@/pages/creator-applications";
-import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, isCreatorConsolePath, isInfluencerRole } from "@/lib/creator-access";
+import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole } from "@/lib/creator-access";
 import AdminPartnersPage from "@/pages/admin-partners";
 import AdminPartnerDetailPage from "@/pages/admin-partner-detail";
 import { captureReferralFromUrl } from "@/lib/partner-api";
@@ -253,7 +253,10 @@ const hasPermissionForRoute = (path: string, user: any): boolean => {
     return canViewCreatorRevenueAdmin(user);
   }
   if (user?.role === "superadmin") return true;
-  if (isInfluencerRole(user) && !isCreatorConsolePath(path)) return false;
+  if (isInfluencerRole(user)) {
+    const sections = Array.isArray(user?.sections) ? user.sections : undefined;
+    return influencerMayOpenPath(path, sections);
+  }
   
   // Find matching route (check exact first, then prefixes)
   let permission: string | null = null;

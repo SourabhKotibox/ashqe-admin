@@ -216,7 +216,7 @@ export default function CreatorApplicationsPage() {
           {mode === "approve" && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                This creates a creator account for {application?.email}. The temporary password is shown once after approval so you can share it if email is not configured.
+                This creates a creator account for {application?.email}. They can open the creator panel as soon as they sign in: Dashboard, Media Library, Movies, Web Series, and catalogs (Languages, Genres, Actors, Directors, Crew, and Countries). Those sections are included with the creator role, so you do not pick them here. The temporary password is shown once after approval so you can share it if email is not configured.
               </p>
               <DefaultRateOnApproval />
               <div>

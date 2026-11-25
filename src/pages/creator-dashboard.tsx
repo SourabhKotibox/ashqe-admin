@@ -3,6 +3,8 @@ import { Clapperboard, Eye, Film, HardDrive, IndianRupee, Library, Loader2, Tv, 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBytes, fmtDateTime, useCreatorDashboard } from "@/lib/creator-api";
+import { useGetMe } from "@/lib/api-client";
+import { influencerMayOpenPath } from "@/lib/creator-access";
 
 const STATUS_ORDER = ["draft", "processing", "moderation", "rejected", "published"] as const;
 const STATUS_LABEL: Record<string, string> = {
@@ -24,6 +26,9 @@ const emptyCounts = { draft: 0, processing: 0, moderation: 0, rejected: 0, publi
 
 export default function CreatorDashboard() {
   const [, setLocation] = useLocation();
+  const { data: me } = useGetMe();
+  const sections = Array.isArray(me?.sections) ? me.sections as string[] : undefined;
+  const canOpen = (href: string) => influencerMayOpenPath(href, sections);
   const { data, isLoading, isError, error } = useCreatorDashboard();
   const summary = data?.data;
   const movies = { ...emptyCounts, ...(summary?.counts?.movies || {}) };
@@ -63,19 +68,40 @@ export default function CreatorDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setLocation("/movies/new")} className="gap-2">
-            <Upload className="w-4 h-4" /> Upload Movie
-          </Button>
-          <Button variant="outline" onClick={() => setLocation("/tv-shows/new")} className="gap-2">
-            <Tv className="w-4 h-4" /> Upload Web Series
-          </Button>
+          {canOpen("/movies") && (
+            <Button onClick={() => setLocation("/movies/new")} className="gap-2">
+              <Upload className="w-4 h-4" /> Upload Movie
+            </Button>
+          )}
+          {canOpen("/tv-shows") && (
+            <Button variant="outline" onClick={() => setLocation("/tv-shows/new")} className="gap-2">
+              <Tv className="w-4 h-4" /> Upload Web Series
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setLocation("/earnings")} className="gap-2">
             <IndianRupee className="w-4 h-4" /> Revenue
           </Button>
-          <Button variant="outline" onClick={() => setLocation("/media-library")} className="gap-2">
-            <Library className="w-4 h-4" /> Media Library
-          </Button>
+          {canOpen("/media-library") && (
+            <Button variant="outline" onClick={() => setLocation("/media-library")} className="gap-2">
+              <Library className="w-4 h-4" /> Media Library
+            </Button>
+          )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {([
+          ["/languages", "Languages"],
+          ["/genres", "Genres"],
+          ["/actors", "Actors"],
+          ["/directors", "Directors"],
+          ["/crew", "Crew"],
+          ["/countries", "Countries"],
+        ] as const).filter(([href]) => canOpen(href)).map(([href, label]) => (
+          <Button key={href} variant="outline" size="sm" onClick={() => setLocation(href)}>
+            {label}
+          </Button>
+        ))}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -91,8 +117,8 @@ export default function CreatorDashboard() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <Breakdown title="Movies" counts={movies} onOpen={() => setLocation("/movies")} />
-        <Breakdown title="Web series" counts={shows} onOpen={() => setLocation("/tv-shows")} />
+        <Breakdown title="Movies" counts={movies} onOpen={canOpen("/movies") ? () => setLocation("/movies") : undefined} />
+        <Breakdown title="Web series" counts={shows} onOpen={canOpen("/tv-shows") ? () => setLocation("/tv-shows") : undefined} />
       </div>
 
       <Card>
@@ -171,12 +197,12 @@ function Stat({ icon: Icon, label, value, hint }: { icon: any; label: string; va
   );
 }
 
-function Breakdown({ title, counts, onOpen }: { title: string; counts: typeof emptyCounts; onOpen: () => void }) {
+function Breakdown({ title, counts, onOpen }: { title: string; counts: typeof emptyCounts; onOpen?: () => void }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base">{title}</CardTitle>
-        <Button variant="ghost" size="sm" onClick={onOpen}>Open</Button>
+        {onOpen && <Button variant="ghost" size="sm" onClick={onOpen}>Open</Button>}
       </CardHeader>
       <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {STATUS_ORDER.map((key) => (
