@@ -117,3 +117,73 @@ export const useCreatorDashboard = () =>
     queryKey: ["creator-dashboard"],
     queryFn: () => apiRequest("/api/creator/dashboard"),
   });
+
+export const SOCIAL_PLATFORMS = ["instagram", "youtube", "facebook", "x", "website", "other"] as const;
+export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+export type SocialLink = { platform: SocialPlatform; url: string };
+
+export type CreatorApplicationProfile = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  city: string;
+  state: string;
+  channelName: string;
+  contentTypes: string[];
+  sampleLinks: string[];
+  portfolioSummary: string;
+  status: string;
+  copyrightAttested: boolean;
+  submittedAt: string;
+  reviewedAt: string | null;
+  rejectionReason?: string;
+  adminNotes?: string;
+};
+
+/** GET /api/creator/profile and GET /api/admin/creators/:id/profile share this shape. */
+export type CreatorProfile = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  avatar: string;
+  bio: string;
+  socialLinks: SocialLink[];
+  role: string;
+  isActive: boolean;
+  application: CreatorApplicationProfile | null;
+};
+
+export type CreatorProfilePatch = {
+  name?: string;
+  avatar?: string;
+  bio?: string;
+  socialLinks?: SocialLink[];
+};
+
+export const useOwnCreatorProfile = () =>
+  useQuery({
+    queryKey: ["creator-profile", "me"],
+    queryFn: () => apiRequest("/api/creator/profile") as Promise<{ success: boolean; data: CreatorProfile }>,
+  });
+
+export const useUpdateOwnCreatorProfile = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreatorProfilePatch) =>
+      apiRequest("/api/creator/profile", { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["creator-profile"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+};
+
+export const useStaffCreatorProfile = (id?: string) =>
+  useQuery({
+    queryKey: ["creator-profile", "staff", id],
+    queryFn: () =>
+      apiRequest(`/api/admin/creators/${encodeURIComponent(id || "")}/profile`) as Promise<{ success: boolean; data: CreatorProfile }>,
+    enabled: !!id,
+  });

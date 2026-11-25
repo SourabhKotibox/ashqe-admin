@@ -125,11 +125,14 @@ export default function MovieForm() {
   const [seoImagePickerOpen, setSeoImagePickerOpen] = useState(false);
 
   /* ---- API data ---- */
-  const { data: categoriesData } = useGetCategoriesList({ limit: 100, admin: true });
+  const { data: me, isFetched: meFetched } = useGetMe();
+  const isCreator = me?.role === "influencer";
+  const staffCatalog = meFetched && !isCreator;
+  const { data: categoriesData } = useGetCategoriesList({ limit: 100, admin: true, enabled: staffCatalog });
   const categoriesList = (categoriesData as any)?.data || [];
   const { data: sectionsData } = useGetSections({ contentType: "movie", activeOnly: true });
   const sectionOptions = sectionsData?.data?.map((s: any) => ({ id: s.id || s._id, title: s.title })) || [];
-  const { data: plansData } = useGetSubscriptionPlans({ limit: 100 });
+  const { data: plansData } = useGetSubscriptionPlans({ limit: 100, enabled: staffCatalog });
   const subscriptionPlans = ((plansData as any)?.data || []).filter(
     (p: any) => p.status !== false && p.status !== "inactive"
   );
@@ -143,9 +146,6 @@ export default function MovieForm() {
 
   const createMovieMutation = useCreateMovie();
   const updateMovieMutation = useUpdateMovie();
-  const { data: me } = useGetMe();
-  const isCreator = me?.role === "influencer";
-
   const { data: movieData } = useGetMovieById(isEdit ? id! : "");
   const movie = (movieData as any)?.data;
 

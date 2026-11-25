@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { isCreatorConsolePath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
+import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
 import { ForcePasswordChange } from "@/components/force-password-change";
 import { Link, useLocation } from "wouter";
 import {
@@ -48,6 +48,7 @@ import {
   MessageSquare,
   TrendingUp,
   Handshake,
+  IndianRupee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -80,6 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       label: t('nav.main'),
       items: [
         { href: "/dashboard", label: t('nav.dashboard'), icon: Home, permission: null },
+        { href: CREATOR_EARNINGS_PATH, label: "Revenue", icon: IndianRupee, permission: null },
         { href: "/media-library", label: t('nav.mediaLibrary'), icon: Image, permission: "mediaLibrary" },
         { href: "/home-sections", label: "App Layout Builder", icon: LayoutList, permission: "categories" },
         { href: "/web-home-sections", label: "Web Layout Builder", icon: LayoutList, permission: "categories" },
@@ -92,6 +94,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: "/users", label: t('nav.users'), icon: Users, permission: "subscriptions" },
         { href: "/influencers", label: "Role-Based Access", icon: Shield, permission: "influencers" },
         { href: "/creator-applications", label: "Creator Applications", icon: Clapperboard, permission: "influencers" },
+        { href: ADMIN_CREATOR_REVENUE_PATH, label: "Creator Revenue", icon: IndianRupee, permission: "creatorRevenue" },
         { href: "/approvals", label: "Approvals", icon: CheckCircle, permission: "movies" },
       ],
     },
@@ -201,8 +204,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const mustChangePassword = user?.mustChangePassword === true || (readMustChangePasswordFlag() && user?.mustChangePassword !== false);
 
   const hasPermission = (permission: string | null, href?: string): boolean => {
+    if (href === CREATOR_EARNINGS_PATH) return isInfluencerRole(user);
+    if (href === ADMIN_CREATOR_REVENUE_PATH) return canViewCreatorRevenueAdmin(user);
+
     // Super admin has all permissions
     if (user?.role === "superadmin") return true;
+
+    // Creators see the influencer pack (dashboard, media, movies, web series,
+    // and their catalogs). Other sections stay hidden. Staff checks are unchanged.
+    if (isInfluencerRole(user)) {
+      const sections = Array.isArray(user?.sections) ? user.sections as string[] : undefined;
+      return href ? influencerMayOpenPath(href, sections) : !permission;
+    }
     
     // If no permission required, show it
     if (!permission) return true;
@@ -210,8 +223,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     // Check module permissions
     const modulePerms = user?.modulePermissions?.[permission as keyof typeof user.modulePermissions];
     if (!modulePerms) return false;
-    
-    if (isInfluencerRole(user) && href && !isCreatorConsolePath(href)) return false;
 
     // Check if user has at least view permission
     return (modulePerms as any).canView || (modulePerms as any).canUpload;
@@ -439,7 +450,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ))}
             </SelectContent>
           </Select>
-          <HeaderNotifications />
+          {user && !isInfluencerRole(user) && <HeaderNotifications />}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-muted-foreground">
@@ -577,7 +588,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 ))}
               </SelectContent>
             </Select>
-            <HeaderNotifications />
+            {user && !isInfluencerRole(user) && <HeaderNotifications />}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="outline-none ring-0 focus:ring-0">

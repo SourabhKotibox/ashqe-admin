@@ -126,11 +126,14 @@ export default function TvShowForm() {
   const [seoImagePickerOpen, setSeoImagePickerOpen] = useState(false);
 
   /* ---- API data ---- */
-  const { data: categoriesData } = useGetCategoriesList({ limit: 100, admin: true });
+  const { data: me, isFetched: meFetched } = useGetMe();
+  const isCreator = me?.role === "influencer";
+  const staffCatalog = meFetched && !isCreator;
+  const { data: categoriesData } = useGetCategoriesList({ limit: 100, admin: true, enabled: staffCatalog });
   const categoriesList = (categoriesData as any)?.data || [];
   const { data: sectionsData } = useGetSections({ contentType: "tvShow", activeOnly: true });
   const sectionOptions = sectionsData?.data?.map((s: any) => ({ id: s.id || s._id, title: s.title })) || [];
-  const { data: plansData } = useGetSubscriptionPlans({ limit: 100 });
+  const { data: plansData } = useGetSubscriptionPlans({ limit: 100, enabled: staffCatalog });
   const subscriptionPlans = ((plansData as any)?.data || []).filter(
     (p: any) => p.status !== false && p.status !== "inactive"
   );
@@ -143,8 +146,6 @@ export default function TvShowForm() {
   ].filter((opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i);
 
   const createTVShowMutation = useCreateTVShow();
-  const { data: me } = useGetMe();
-  const isCreator = me?.role === "influencer";
   const updateTVShowMutation = useUpdateTVShow();
 
   const { data: tvShowData } = useGetTVShowById(isEdit ? id! : "");

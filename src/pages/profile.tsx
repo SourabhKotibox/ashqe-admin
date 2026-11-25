@@ -12,6 +12,8 @@ import {
   useUpdateProfile, useUpdatePassword, getImageUrl, useGetMe,
   uploadAdminAvatar, useGetDashboardStats,
 } from "@/lib/api-client";
+import { isInfluencerRole } from "@/lib/creator-access";
+import { CreatorOwnProfile } from "@/pages/creator-profile";
 
 type Tab = "personal" | "password";
 
@@ -33,7 +35,6 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<Tab>("personal");
 
   const { data: user, isLoading } = useGetMe();
-  const { data: stats } = useGetDashboardStats();
 
   const [form, setForm] = useState({ name: "", email: "", avatar: "" });
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -123,12 +124,7 @@ export default function ProfilePage() {
     );
   }
 
-  const statCards = [
-    { label: "Total Users", value: stats?.totalUsers ?? "—", icon: Users, color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20" },
-    { label: "Total Content", value: stats?.restContent ?? "—", icon: Film, color: "text-violet-400", bg: "bg-violet-500/10 border-violet-500/20" },
-    { label: "Active Subscribers", value: stats?.totalSubscribers ?? "—", icon: Crown, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
-    { label: "Total Reviews", value: stats?.totalReviews ?? "—", icon: Star, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
-  ];
+  if (isInfluencerRole(user)) return <CreatorOwnProfile />;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -201,22 +197,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Stats row ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {statCards.map((s) => (
-          <div key={s.label} className={`rounded-2xl border border-border p-4 bg-card ${s.bg} flex flex-col gap-2`}>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/80">{s.label}</span>
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${s.bg}`}>
-                <s.icon className={`w-4 h-4 ${s.color}`} />
-              </div>
-            </div>
-            <p className={`text-2xl font-black ${s.color}`}>
-              {typeof s.value === "number" ? s.value.toLocaleString() : s.value}
-            </p>
-          </div>
-        ))}
-      </div>
+      <StaffProfileStats />
 
       {/* ── Edit section ────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-5 items-start">
@@ -424,6 +405,34 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Platform totals. Mounted only for staff — creators never reach this, and the endpoint requires moderator+. */
+function StaffProfileStats() {
+  const { data: stats } = useGetDashboardStats();
+  const statCards = [
+    { label: "Total Users", value: stats?.totalUsers ?? "—", icon: Users, color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20" },
+    { label: "Total Content", value: stats?.restContent ?? "—", icon: Film, color: "text-violet-400", bg: "bg-violet-500/10 border-violet-500/20" },
+    { label: "Active Subscribers", value: stats?.totalSubscribers ?? "—", icon: Crown, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
+    { label: "Total Reviews", value: stats?.totalReviews ?? "—", icon: Star, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
+  ];
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {statCards.map((s) => (
+        <div key={s.label} className={`rounded-2xl border border-border p-4 bg-card ${s.bg} flex flex-col gap-2`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/80">{s.label}</span>
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${s.bg}`}>
+              <s.icon className={`w-4 h-4 ${s.color}`} />
+            </div>
+          </div>
+          <p className={`text-2xl font-black ${s.color}`}>
+            {typeof s.value === "number" ? s.value.toLocaleString() : s.value}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }

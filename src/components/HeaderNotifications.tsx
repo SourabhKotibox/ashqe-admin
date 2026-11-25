@@ -12,7 +12,7 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
-import { useGetAdminNotifications, useMarkAdminNotificationsRead } from "../lib/api-client";
+import { useGetAdminNotifications, useGetMe, useMarkAdminNotificationsRead } from "../lib/api-client";
 
 const formatTimeAgo = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -35,7 +35,9 @@ const getIconForType = (type: string, action?: string) => {
 
 export function HeaderNotifications() {
   const [, setLocation] = useLocation();
-  const { data: response } = useGetAdminNotifications();
+  const { data: me, isFetched } = useGetMe();
+  const canLoad = isFetched && !!me && me.role !== "influencer";
+  const { data: response } = useGetAdminNotifications(canLoad);
   const markAsRead = useMarkAdminNotificationsRead();
 
   const notifications = response?.data || [];

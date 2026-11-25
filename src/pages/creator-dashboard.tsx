@@ -1,95 +1,226 @@
+import type { ComponentType } from "react";
 import { useLocation } from "wouter";
-import { Clapperboard, Eye, Film, HardDrive, Library, Loader2, Tv, Upload } from "lucide-react";
+import { Clapperboard, Clock, Film, HardDrive, IndianRupee, Library, Tv, Upload } from "lucide-react";
+import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatBytes, fmtDateTime, useCreatorDashboard } from "@/lib/creator-api";
+import { getImageUrl, useGetMe } from "@/lib/api-client";
+import { influencerMayOpenPath } from "@/lib/creator-access";
+import { formatInr, formatRate, formatWatchHours, useCreatorRevenueSeries, useCreatorRevenueSummary } from "@/lib/creator-revenue";
+import { QueryState } from "@/components/creator-revenue-ui";
 
-const STATUS_ORDER = ["draft", "processing", "moderation", "rejected", "published"] as const;
 const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
   processing: "Processing",
-  moderation: "In Review",
+  moderation: "In review",
   rejected: "Rejected",
   published: "Published",
 };
 const STATUS_TONE: Record<string, string> = {
   draft: "bg-zinc-500/15 text-foreground/80",
-  processing: "bg-sky-500/15 text-sky-400",
-  moderation: "bg-amber-500/15 text-amber-400",
-  rejected: "bg-rose-500/15 text-rose-400",
-  published: "bg-emerald-500/15 text-emerald-400",
+  processing: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  moderation: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  rejected: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  published: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
 };
 
 const emptyCounts = { draft: 0, processing: 0, moderation: 0, rejected: 0, published: 0, total: 0 };
+const last30 = { period: "30d" as const, from: "", to: "" };
+
+function initials(name?: string) {
+  const parts = String(name || "Creator").trim().split(/\s+/).slice(0, 2);
+  return parts.map((part) => part.slice(0, 1).toUpperCase()).join("") || "C";
+}
 
 export default function CreatorDashboard() {
   const [, setLocation] = useLocation();
-  const { data, isLoading, isError, error } = useCreatorDashboard();
-  const summary = data?.data;
+  const { data: me, isLoading: meLoading } = useGetMe();
+  const sections = Array.isArray(me?.sections) ? me.sections as string[] : undefined;
+  const canOpen = (href: string) => influencerMayOpenPath(href, sections);
+  const dash = useCreatorDashboard();
+  const earnings = useCreatorRevenueSummary(last30);
+  const series = useCreatorRevenueSeries(last30);
+  const summary = dash.data?.data;
   const movies = { ...emptyCounts, ...(summary?.counts?.movies || {}) };
   const shows = { ...emptyCounts, ...(summary?.counts?.tvShows || {}) };
-  const quotas = summary?.quotas;
-  const pendingRatio = quotas?.maxPendingSubmissions
-    ? Math.min(100, Math.round((Number(quotas.currentPendingSubmissions || 0) / Number(quotas.maxPendingSubmissions)) * 100))
-    : 0;
+  const published = (movies.published || 0) + (shows.published || 0);
+  const inReview = (movies.moderation || 0) + (movies.processing || 0) + (shows.moderation || 0) + (shows.processing || 0);
+  const drafts = (movies.draft || 0) + (shows.draft || 0);
+  const titleTotal = (movies.total || 0) + (shows.total || 0);
+  const points = series.data?.data?.points || [];
+  const rate = earnings.data?.data?.rate;
+  const avatar = me?.avatar ? getImageUrl(me.avatar) : "";
 
-  if (isLoading) {
+  if (dash.isLoading || meLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <Skeleton className="h-36 w-full rounded-2xl" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-28 rounded-2xl" />)}
+        </div>
+        <Skeleton className="h-64 w-full rounded-2xl" />
       </div>
     );
   }
 
-  if (isError) {
+  if (dash.isError) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center">
-        <p className="font-semibold">Creator dashboard is unavailable</p>
-        <p className="text-sm text-muted-foreground mt-1">{(error as any)?.message || "Try again in a moment."}</p>
-      </div>
+      <QueryState isError error={dash.error} onRetry={() => dash.refetch()} />
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-500 inline-flex items-center gap-1.5">
-            <Clapperboard className="w-3.5 h-3.5" /> Creator console
-          </p>
-          <h1 className="text-2xl font-bold text-foreground mt-1">Your films</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Upload movies and web series, then submit them for review. Published titles appear on Ashqe.
-          </p>
+      <section className="relative overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/20 via-amber-500/10 to-transparent" aria-hidden />
+        <div className="relative flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16 ring-2 ring-background ring-offset-2 ring-offset-primary/50">
+              {avatar ? <AvatarImage src={avatar} alt="" /> : null}
+              <AvatarFallback className="bg-primary/15 text-lg font-semibold text-primary">{initials(me?.name)}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                <Clapperboard className="h-3.5 w-3.5" /> Creator
+              </p>
+              <h1 className="truncate text-2xl font-bold text-foreground">Welcome back, {me?.name || "Creator"}</h1>
+              <p className="text-sm text-muted-foreground">Your films, watch time, and earnings from the last 30 days.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {canOpen("/movies") && (
+              <Button onClick={() => setLocation("/movies/new")} className="gap-2">
+                <Upload className="h-4 w-4" /> Upload movie
+              </Button>
+            )}
+            {canOpen("/tv-shows") && (
+              <Button variant="outline" onClick={() => setLocation("/tv-shows/new")} className="gap-2">
+                <Tv className="h-4 w-4" /> Create series
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setLocation("/earnings")} className="gap-2">
+              <IndianRupee className="h-4 w-4" /> View revenue
+            </Button>
+            {canOpen("/media-library") && (
+              <Button variant="outline" onClick={() => setLocation("/media-library")} className="gap-2">
+                <Library className="h-4 w-4" /> Media
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setLocation("/movies/new")} className="gap-2">
-            <Upload className="w-4 h-4" /> Upload Movie
-          </Button>
-          <Button variant="outline" onClick={() => setLocation("/tv-shows/new")} className="gap-2">
-            <Tv className="w-4 h-4" /> Upload Web Series
-          </Button>
-          <Button variant="outline" onClick={() => setLocation("/media-library")} className="gap-2">
-            <Library className="w-4 h-4" /> Media Library
-          </Button>
-        </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat icon={Film} label="Movies" value={movies.total} hint={`${movies.published} published`} />
-        <Stat icon={Tv} label="Web series" value={shows.total} hint={`${shows.published} published`} />
-        <Stat icon={Eye} label="Total views" value={Number(summary?.totalViews || 0).toLocaleString()} hint="On published content" />
-        <Stat
-          icon={HardDrive}
-          label="Upload limit"
-          value={formatBytes(quotas?.maxUploadSizeBytes)}
-          hint={`${quotas?.currentPendingSubmissions ?? 0} of ${quotas?.maxPendingSubmissions ?? "—"} in review`}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Kpi
+          label="Earnings"
+          value={earnings.isLoading ? "…" : formatInr(earnings.data?.data?.amountInr || 0)}
+          hint="Last 30 days"
+          icon={IndianRupee}
         />
+        <Kpi
+          label="Watch hours"
+          value={earnings.isLoading ? "…" : formatWatchHours(earnings.data?.data?.watchHours || 0)}
+          hint="Last 30 days"
+          icon={Clock}
+        />
+        <Kpi
+          label="Current rate"
+          value={earnings.isLoading ? "…" : formatRate(rate?.rateInrPerHour || 0)}
+          hint={rate?.source === "override" ? "Your override" : "Global default"}
+          icon={IndianRupee}
+        />
+        <Kpi label="Published" value={String(published)} hint="Movies and series live on Ashqe" icon={Film} />
+        <Kpi label="In review" value={String(inReview)} hint="Processing or waiting on an editor" icon={Clapperboard} />
+        <Kpi label="Drafts" value={String(drafts)} hint="Not submitted yet" icon={HardDrive} />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Breakdown title="Movies" counts={movies} onOpen={() => setLocation("/movies")} />
-        <Breakdown title="Web series" counts={shows} onOpen={() => setLocation("/tv-shows")} />
+      {earnings.isError && (
+        <QueryState isError error={earnings.error} onRetry={() => earnings.refetch()} />
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Earnings, last 30 days</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {series.isLoading ? (
+              <Skeleton className="h-28 w-full" />
+            ) : points.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No watch time credited in the last 30 days.</p>
+            ) : (
+              <div className="h-28" aria-label="Earnings sparkline for the last 30 days">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={points}>
+                    <Area type="monotone" dataKey="amountInr" stroke="#d97706" fill="#d97706" fillOpacity={0.2} strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              {formatInr(earnings.data?.data?.amountInr || 0)} from {formatWatchHours(earnings.data?.data?.watchHours || 0)} of watch time.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Recent titles</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {titleTotal === 0 ? (
+              <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
+                <p className="font-semibold">No titles yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">Upload a movie or start a series. Earnings begin after a title is published and someone watches it.</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {canOpen("/movies") && <Button onClick={() => setLocation("/movies/new")}>Upload movie</Button>}
+                  {canOpen("/tv-shows") && <Button variant="outline" onClick={() => setLocation("/tv-shows/new")}>Create series</Button>}
+                </div>
+              </div>
+            ) : (summary?.recentSubmissions || []).length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No recent submissions.</p>
+            ) : (summary.recentSubmissions || []).map((item: any) => {
+              const status = item.status || "draft";
+              const isSeries = item.type === "tv" || item.type === "tvShow" || item.type === "webseries";
+              const href = isSeries ? `/tv-shows/${item.id}/edit` : `/movies/${item.id}/edit`;
+              return (
+                <button
+                  key={item.id || item.title}
+                  type="button"
+                  onClick={() => item.id && setLocation(href)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-border px-3 py-3 text-left hover:bg-muted/40"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{item.title || "Untitled"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isSeries ? "Series" : "Movie"}
+                      {item.updatedAt ? ` · ${fmtDateTime(item.updatedAt)}` : ""}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${STATUS_TONE[status] || STATUS_TONE.draft}`}>
+                    {STATUS_LABEL[status] || status}
+                  </span>
+                </button>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {([
+          ["/languages", "Languages"],
+          ["/genres", "Genres"],
+          ["/actors", "Actors"],
+          ["/directors", "Directors"],
+          ["/crew", "Crew"],
+          ["/countries", "Countries"],
+        ] as const).filter(([href]) => canOpen(href)).map(([href, label]) => (
+          <Button key={href} variant="outline" size="sm" onClick={() => setLocation(href)}>{label}</Button>
+        ))}
       </div>
 
       <Card>
@@ -97,96 +228,38 @@ export default function CreatorDashboard() {
           <CardTitle className="text-base">Review queue</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between text-sm mb-2">
+          <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Titles waiting on an editor</span>
-            <span className="font-semibold">{quotas?.currentPendingSubmissions ?? 0} / {quotas?.maxPendingSubmissions ?? "—"}</span>
+            <span className="font-semibold">{summary?.quotas?.currentPendingSubmissions ?? 0} / {summary?.quotas?.maxPendingSubmissions ?? "—"}</span>
           </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-amber-500" style={{ width: `${pendingRatio}%` }} />
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full bg-amber-500"
+              style={{
+                width: `${summary?.quotas?.maxPendingSubmissions
+                  ? Math.min(100, Math.round((Number(summary.quotas.currentPendingSubmissions || 0) / Number(summary.quotas.maxPendingSubmissions)) * 100))
+                  : 0}%`,
+              }}
+            />
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Each file can be up to {formatBytes(quotas?.maxUploadSizeBytes)}. Video uploads go directly to storage, then process into HLS before you can submit.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Recent submissions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {(summary?.recentSubmissions || []).length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">No submissions yet. Upload a movie or web series to get started.</p>
-          ) : (summary.recentSubmissions || []).map((item: any) => {
-            const status = item.status || "draft";
-            const rawType = String(item.type || item.kind || "movie");
-            const isWebSeries = rawType === "tv" || rawType === "tvShow" || rawType === "webseries";
-            const href = isWebSeries
-              ? `/tv-shows/${item.id || item._id}/edit`
-              : `/movies/${item.id || item._id}/edit`;
-            const typeLabel = isWebSeries ? "web series" : rawType === "movie" ? "movie" : rawType.replace("webseries", "web series");
-            return (
-              <button
-                key={item.id || item._id || item.title}
-                type="button"
-                onClick={() => item.id || item._id ? setLocation(href) : undefined}
-                className="w-full text-left rounded-xl border border-border px-4 py-3 hover:bg-muted/40 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">{item.title || item.name || "Untitled"}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {typeLabel}
-                      {item.updatedAt || item.submittedAt ? ` · ${fmtDateTime(item.updatedAt || item.submittedAt)}` : ""}
-                    </p>
-                  </div>
-                  <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-md ${STATUS_TONE[status] || STATUS_TONE.draft}`}>
-                    {STATUS_LABEL[status] || status}
-                  </span>
-                </div>
-                {status === "rejected" && item.rejectionReason && (
-                  <p className="mt-2 text-sm text-rose-400">Rejected: {item.rejectionReason}</p>
-                )}
-              </button>
-            );
-          })}
+          <p className="mt-2 text-xs text-muted-foreground">Each file can be up to {formatBytes(summary?.quotas?.maxUploadSizeBytes)}.</p>
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value, hint }: { icon: any; label: string; value: any; hint: string }) {
+function Kpi({ label, value, hint, icon: Icon }: { label: string; value: string; hint: string; icon: ComponentType<{ className?: string }> }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-        <Icon className="w-3.5 h-3.5" /> {label}
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </span>
       </div>
-      <p className="text-2xl font-black mt-2">{value}</p>
-      <p className="text-xs text-muted-foreground mt-1">{hint}</p>
+      <p className="mt-3 text-xl font-bold text-foreground sm:text-2xl">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
     </div>
-  );
-}
-
-function Breakdown({ title, counts, onOpen }: { title: string; counts: typeof emptyCounts; onOpen: () => void }) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base">{title}</CardTitle>
-        <Button variant="ghost" size="sm" onClick={onOpen}>Open</Button>
-      </CardHeader>
-      <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {STATUS_ORDER.map((key) => (
-          <div key={key} className="rounded-lg bg-muted/40 px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">{STATUS_LABEL[key]}</p>
-            <p className="text-lg font-bold">{counts[key] ?? 0}</p>
-          </div>
-        ))}
-        <div className="rounded-lg bg-muted/40 px-3 py-2">
-          <p className="text-[11px] text-muted-foreground">Total</p>
-          <p className="text-lg font-bold">{counts.total ?? 0}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

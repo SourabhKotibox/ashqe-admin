@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useGetAdminUsers, useCreateAdminUser, useUpdateAdminUser, useDeleteAdminUser, useResetAdminUserPassword, useToggleAdminUserStatus, useGetEmailStatus } from "@/lib/api-client";
+import { cloneCreatorModulePermissions } from "@/lib/creator-access";
 
 interface Influencer {
   id: string;
@@ -34,6 +35,17 @@ interface Influencer {
   createdBy?: { name: string; email: string };
 }
 
+function CreatorPackNotice() {
+  return (
+    <div className="space-y-2 pt-4 border-t border-border">
+      <h3 className="font-semibold text-foreground">Creator access</h3>
+      <p className="text-sm text-muted-foreground">
+        Influencers automatically get the creator panel: Dashboard, Revenue, Media Library, Movies, Web Series, and catalogs (Languages, Genres, Actors, Directors, Crew, and Countries). Revenue is always included. They can view their own earnings. They cannot change rates. Other admin sections stay off.
+      </p>
+    </div>
+  );
+}
+
 const defaultModulePermissions = {
   movies: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   shows: { canView: true, canCreate: false, canEdit: false, canDelete: false },
@@ -56,7 +68,13 @@ const defaultModulePermissions = {
   notificationTemplates: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   settings: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   reviews: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  creatorRevenue: { canView: false, canCreate: false, canEdit: false, canDelete: false },
 };
+
+function modulePermissionLabel(module: string) {
+  if (module === "creatorRevenue") return "Creator revenue";
+  return module;
+}
 
 export default function InfluencersPage() {
   const [location, setLocation] = useLocation();
@@ -150,7 +168,12 @@ export default function InfluencersPage() {
     try {
       await updateMutation.mutateAsync({
         id: selectedInfluencer.id,
-        data: editForm
+        data: {
+          ...editForm,
+          modulePermissions: editForm.role === "influencer"
+            ? cloneCreatorModulePermissions()
+            : editForm.modulePermissions,
+        },
       });
       toast({ title: "User updated successfully" });
       setIsEditModalOpen(false);
@@ -209,7 +232,12 @@ export default function InfluencersPage() {
     }
 
     try {
-      const result = await createMutation.mutateAsync(createForm);
+      const result = await createMutation.mutateAsync({
+        ...createForm,
+        modulePermissions: createForm.role === "influencer"
+          ? cloneCreatorModulePermissions()
+          : createForm.modulePermissions,
+      });
       setIsCreateModalOpen(false);
 
       // Show credentials modal with the generated password
@@ -515,13 +543,21 @@ export default function InfluencersPage() {
                 </Select>
               </div>
 
+              {createForm.role === "influencer" ? (
+                <CreatorPackNotice />
+              ) : (
               <div className="space-y-4 pt-4 border-t border-border">
                 <h3 className="font-semibold text-foreground">Module Permissions</h3>
 
                 {Object.keys(defaultModulePermissions).map((module) => (
                   <div key={module} className="space-y-2 p-4 rounded-lg border border-border bg-muted/20">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground capitalize">{module}</span>
+                    <div>
+                      <span className="font-medium text-foreground capitalize">{modulePermissionLabel(module)}</span>
+                      {module === "creatorRevenue" && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Staff who are not admins need View to open Creator Revenue. Edit lets them change the default and a creator&apos;s rate. Admins can already view. Super admins can already edit.
+                        </p>
+                      )}
                     </div>
                     <div className="grid grid-cols-4 gap-4">
                       {module === 'mediaLibrary' ? (
@@ -654,6 +690,7 @@ export default function InfluencersPage() {
                   </div>
                 ))}
               </div>
+              )}
             </div>
             <div className="p-6 border-t border-border flex justify-end gap-3">
               <Button
@@ -730,13 +767,21 @@ export default function InfluencersPage() {
                 </Select>
               </div>
 
+              {editForm.role === "influencer" ? (
+                <CreatorPackNotice />
+              ) : (
               <div className="space-y-4 pt-4 border-t border-border">
                 <h3 className="font-semibold text-foreground">Module Permissions</h3>
 
                 {Object.keys(defaultModulePermissions).map((module) => (
                   <div key={module} className="space-y-2 p-4 rounded-lg border border-border bg-muted/20">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground capitalize">{module}</span>
+                    <div>
+                      <span className="font-medium text-foreground capitalize">{modulePermissionLabel(module)}</span>
+                      {module === "creatorRevenue" && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Staff who are not admins need View to open Creator Revenue. Edit lets them change the default and a creator&apos;s rate. Admins can already view. Super admins can already edit.
+                        </p>
+                      )}
                     </div>
                     <div className="grid grid-cols-4 gap-4">
                       {module === 'mediaLibrary' ? (
@@ -869,6 +914,7 @@ export default function InfluencersPage() {
                   </div>
                 ))}
               </div>
+              )}
             </div>
             <div className="p-6 border-t border-border flex justify-end gap-3">
               <Button
