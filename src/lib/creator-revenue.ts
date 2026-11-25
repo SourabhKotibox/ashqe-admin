@@ -184,6 +184,33 @@ export function isPeriodReady(selection: PeriodSelection) {
   return DATE_KEY.test(selection.from) && DATE_KEY.test(selection.to) && customPeriodError(selection.from, selection.to) === null;
 }
 
+/** The window of the same length immediately before the selected period. All time has no comparison. */
+export function previousPeriod(selection: PeriodSelection): PeriodSelection | null {
+  if (!isPeriodReady(selection) || selection.period === "all") return null;
+  const today = istTodayKey();
+  if (selection.period === "today") {
+    const day = addIstDays(today, -1);
+    return { period: "custom", from: day, to: day };
+  }
+  if (selection.period === "7d") {
+    return { period: "custom", from: addIstDays(today, -13), to: addIstDays(today, -7) };
+  }
+  if (selection.period === "30d") {
+    return { period: "custom", from: addIstDays(today, -59), to: addIstDays(today, -30) };
+  }
+  const days = inclusiveDayCount(selection.from, selection.to);
+  const to = addIstDays(selection.from, -1);
+  const from = addIstDays(to, -(days - 1));
+  return { period: "custom", from, to };
+}
+
+/** Null means the previous window was zero and this one is not, so there is no percentage. */
+export function percentChange(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
+  if (previous === 0) return current === 0 ? 0 : null;
+  return ((current - previous) / previous) * 100;
+}
+
 export function periodQueryString(
   selection: PeriodSelection,
   extra?: Record<string, string | number | undefined>
@@ -288,8 +315,8 @@ type Wrapped<T> = { success?: boolean; data: T; pagination?: RevenuePagination }
 
 const revenueKey = ["creator-revenue"] as const;
 
-export function useCreatorRevenueSummary(selection: PeriodSelection) {
-  const ready = isPeriodReady(selection);
+export function useCreatorRevenueSummary(selection: PeriodSelection, enabled = true) {
+  const ready = isPeriodReady(selection) && enabled;
   return useQuery({
     queryKey: [...revenueKey, "summary", selection],
     queryFn: () =>
@@ -339,16 +366,53 @@ export function useCreatorRate(creatorId?: string, enabled = true) {
   });
 }
 
-export function useCreatorRevenueOverview(selection: PeriodSelection, page: number, limit = 20) {
+export function useCreatorRevenueOverview(
+  selection: PeriodSelection,
+  page: number,
+  limit = 20,
+  creatorId?: string
+) {
   const ready = isPeriodReady(selection);
   return useQuery({
-    queryKey: [...revenueKey, "overview", selection, page, limit],
+    queryKey: [...revenueKey, "overview", selection, page, limit, creatorId || ""],
     queryFn: () =>
       apiRequest(
-        `/api/admin/creator-revenue/overview?${periodQueryString(selection, { page, limit })}`
+        `/api/admin/creator-revenue/overview?${periodQueryString(selection, { page, limit, creatorId })}`
       ) as Promise<Wrapped<RevenueOverviewData>>,
     enabled: ready,
   });
+}
+
+export async function fetchAllCreatorTitles(selection: PeriodSelection) {
+  const items: RevenueTitle[] = [];
+  let page = 1;
+  let pages = 1;
+  while (page <= pages && page <= 20) {
+    const response = await apiRequest(
+      `/api/creator/revenue/titles?${periodQueryString(selection, { page, limit: 100 })}`
+    ) as Wrapped<RevenueTitlesData>;
+    items.push(...(response.data?.items || []));
+    pages = response.pagination?.pages || 1;
+    page += 1;
+  }
+  return items;
+}
+
+export function titlesToCsv(items: RevenueTitle[]) {
+  const rows = [["Title", "Type", "Episode", "Watch hours", "Earnings INR"]];
+  for (const item of items) {
+    rows.push([item.title, item.titleType === "series" ? "Series" : "Movie", "", String(item.watchHours), String(item.amountInr)]);
+    for (const episode of item.episodes || []) {
+      const label = [episode.season != null ? `S${episode.season}` : "", episode.episode != null ? `E${episode.episode}` : "", episode.title]
+        .filter(Boolean)
+        .join(" ");
+      rows.push([item.title, "Episode", label, String(episode.watchHours), String(episode.amountInr)]);
+    }
+  }
+  return rows.map((row) => row.map((cell) => {
+    const text = String(cell ?? "");
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }).join(",")).join("\n");
 }
 
 function invalidateRevenue(qc: ReturnType<typeof useQueryClient>) {

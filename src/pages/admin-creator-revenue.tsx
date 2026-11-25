@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Clock, IndianRupee, Search, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { getAdminUsers, useGetMe } from "@/lib/api-client";
-import { canEditCreatorRevenue } from "@/lib/creator-access";
+import { canEditCreatorRevenue, canViewCreatorProfile } from "@/lib/creator-access";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ type DirectoryCreator = { id: string; name: string; email: string };
 export default function AdminCreatorRevenuePage() {
   const { data: me, isLoading: meLoading } = useGetMe();
   const canEdit = !!me && canEditCreatorRevenue(me);
+  const canOpenProfile = canViewCreatorProfile(me);
   const { toast } = useToast();
   const [selection, setSelection] = useState<PeriodSelection>(defaultPeriodSelection());
   const [page, setPage] = useState(1);
@@ -243,6 +245,7 @@ export default function AdminCreatorRevenuePage() {
                     open={openCreator === creator.creatorId}
                     editing={editingId === creator.creatorId}
                     canEdit={canEdit}
+                    canOpenProfile={canOpenProfile}
                     accessPending={meLoading}
                     onToggle={() => setOpenCreator((current) => current === creator.creatorId ? null : creator.creatorId)}
                     onEdit={() => {
@@ -266,6 +269,7 @@ function CreatorRows({
   open,
   editing,
   canEdit,
+  canOpenProfile,
   accessPending,
   onToggle,
   onEdit,
@@ -274,6 +278,7 @@ function CreatorRows({
   open: boolean;
   editing: boolean;
   canEdit: boolean;
+  canOpenProfile: boolean;
   accessPending: boolean;
   onToggle: () => void;
   onEdit: () => void;
@@ -293,7 +298,13 @@ function CreatorRows({
           </button>
         </TableCell>
         <TableCell>
-          <p className="font-medium">{creator.name || "Unknown"}</p>
+          {canOpenProfile ? (
+            <Link href={`/creators/${creator.creatorId}`} className="font-medium text-foreground hover:underline">
+              {creator.name || "Unknown"}
+            </Link>
+          ) : (
+            <p className="font-medium">{creator.name || "Unknown"}</p>
+          )}
           <p className="text-xs text-muted-foreground">{creator.email}</p>
         </TableCell>
         <TableCell>

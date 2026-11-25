@@ -169,7 +169,7 @@ import MembershipPage from "@/pages/membership";
 import PartnerProgramPage from "@/pages/partner-program";
 import CreatorProgramPage from "@/pages/creator-program";
 import CreatorApplicationsPage from "@/pages/creator-applications";
-import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole } from "@/lib/creator-access";
+import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorProfile, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole } from "@/lib/creator-access";
 import AdminPartnersPage from "@/pages/admin-partners";
 import AdminPartnerDetailPage from "@/pages/admin-partner-detail";
 import { captureReferralFromUrl } from "@/lib/partner-api";
@@ -184,6 +184,7 @@ import Reviews from "@/pages/reviews";
 import RevenueAnalyticsPage from "@/pages/revenue-analytics";
 import CreatorEarningsPage from "@/pages/creator-earnings";
 import AdminCreatorRevenuePage from "@/pages/admin-creator-revenue";
+import StaffCreatorProfilePage from "@/pages/creator-profile";
 import TvShowsPage from "@/pages/tv-shows";
 import TvShowForm from "@/pages/tv-show-form";
 import TVShowDetailPage from "@/pages/tv-show-detail";
@@ -251,6 +252,9 @@ const hasPermissionForRoute = (path: string, user: any): boolean => {
   }
   if (path === ADMIN_CREATOR_REVENUE_PATH || path.startsWith(`${ADMIN_CREATOR_REVENUE_PATH}/`)) {
     return canViewCreatorRevenueAdmin(user);
+  }
+  if (path === "/creators" || path.startsWith("/creators/")) {
+    return canViewCreatorProfile(user);
   }
   if (user?.role === "superadmin") return true;
   if (isInfluencerRole(user)) {
@@ -401,6 +405,7 @@ function AdminRoutes() {
               <Route path="/revenue-analytics" component={RevenueAnalyticsPage} />
               <Route path="/earnings" component={CreatorEarningsPage} />
               <Route path="/creator-revenue" component={AdminCreatorRevenuePage} />
+              <Route path="/creators/:id" component={StaffCreatorProfilePage} />
         <Route component={NotFound} />
       </Switch>
     </ProtectedRoute>

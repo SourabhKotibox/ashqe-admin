@@ -12,6 +12,8 @@ import {
   useUpdateProfile, useUpdatePassword, getImageUrl, useGetMe,
   uploadAdminAvatar, useGetDashboardStats,
 } from "@/lib/api-client";
+import { isInfluencerRole } from "@/lib/creator-access";
+import { CreatorOwnProfile } from "@/pages/creator-profile";
 
 type Tab = "personal" | "password";
 
@@ -122,6 +124,8 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  if (isInfluencerRole(user)) return <CreatorOwnProfile />;
 
   const statCards = [
     { label: "Total Users", value: stats?.totalUsers ?? "—", icon: Users, color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20" },

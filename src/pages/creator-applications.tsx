@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useGetMe } from "@/lib/api-client";
-import { canViewCreatorRevenueAdmin } from "@/lib/creator-access";
+import { canViewCreatorProfile, canViewCreatorRevenueAdmin } from "@/lib/creator-access";
 import {
   applicationIdOf, fmtDateTime, useAdminCreatorApplication, useAdminCreatorApplications,
   useApproveCreatorApplication, useRejectCreatorApplication,
@@ -216,7 +216,7 @@ export default function CreatorApplicationsPage() {
           {mode === "approve" && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                This creates a creator account for {application?.email}. They can open the creator panel as soon as they sign in: Dashboard, Media Library, Movies, Web Series, and catalogs (Languages, Genres, Actors, Directors, Crew, and Countries). Those sections are included with the creator role, so you do not pick them here. The temporary password is shown once after approval so you can share it if email is not configured.
+                This creates a creator account for {application?.email}. They can open the creator panel as soon as they sign in, including Revenue. Those sections come with the creator role, so you do not pick them here. The temporary password is shown once after approval so you can share it if email is not configured.
               </p>
               <DefaultRateOnApproval />
               <div>
@@ -308,10 +308,11 @@ function DefaultRateOnApproval() {
 function ApprovedCreatorRate({ application }: { application: any }) {
   const { data: me } = useGetMe();
   const canView = canViewCreatorRevenueAdmin(me);
+  const canProfile = canViewCreatorProfile(me);
   const creatorId = creatorIdFrom(application);
   const enabled = canView && application?.status === "approved" && !!creatorId;
   const rate = useCreatorRate(creatorId, enabled);
-  if (!enabled) return null;
+  if (!enabled && !(canProfile && application?.status === "approved" && creatorId)) return null;
   const payload = rate.data?.data;
   return (
     <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
@@ -329,6 +330,11 @@ function ApprovedCreatorRate({ application }: { application: any }) {
           <Link href="/creator-revenue" className="text-primary underline-offset-2 hover:underline">Open Creator Revenue</Link>
         </p>
       ) : null}
+      {canProfile && creatorId && (
+        <p className="mt-2">
+          <Link href={`/creators/${creatorId}`} className="text-primary underline-offset-2 hover:underline">Open creator profile</Link>
+        </p>
+      )}
     </div>
   );
 }

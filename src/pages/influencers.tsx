@@ -40,7 +40,7 @@ function CreatorPackNotice() {
     <div className="space-y-2 pt-4 border-t border-border">
       <h3 className="font-semibold text-foreground">Creator access</h3>
       <p className="text-sm text-muted-foreground">
-        Influencers automatically get the creator panel: Dashboard, Media Library, Movies, Web Series, and catalogs (Languages, Genres, Actors, Directors, Crew, and Countries). Those sections are part of the role, so they are not assigned one by one. Other admin sections stay off.
+        Influencers automatically get the creator panel: Dashboard, Revenue, Media Library, Movies, Web Series, and catalogs (Languages, Genres, Actors, Directors, Crew, and Countries). Revenue is always included. They can view their own earnings. They cannot change rates. Other admin sections stay off.
       </p>
     </div>
   );

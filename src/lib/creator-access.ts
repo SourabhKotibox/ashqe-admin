@@ -15,7 +15,8 @@ const CATALOG: ModuleGrant = { canView: true, canCreate: true, canEdit: true, ca
  * the console uses it so a creator sees these sections even when the login
  * payload is still missing flags.
  * Catalog edit/delete stay limited to rows the creator owns.
- * `creatorRevenue` stays off: influencers use `/earnings`, not the admin overview.
+ * `creatorRevenue.canView` is on so the earnings section is part of the pack.
+ * canEdit stays off: creators cannot change rates.
  */
 export const CREATOR_MODULE_PERMISSIONS: Record<string, ModuleGrant> = {
   users: { ...NONE },
@@ -41,7 +42,7 @@ export const CREATOR_MODULE_PERMISSIONS: Record<string, ModuleGrant> = {
   notificationTemplates: { ...NONE },
   settings: { ...NONE },
   reviews: { ...NONE },
-  creatorRevenue: { ...NONE },
+  creatorRevenue: { canView: true, canCreate: false, canEdit: false, canDelete: false },
 };
 
 /** A copy safe to send when creating or updating a creator account. */
@@ -99,11 +100,11 @@ export function canEditCreatorRevenue(user: RevenuePermissionUser) {
   return Boolean(user.modulePermissions?.creatorRevenue?.canEdit);
 }
 
-/** Staff profile of a creator: admins, or staff who can view applications or revenue. */
+/** Staff creator profile. Matches GET /api/admin/creators/:id/profile (admin, superadmin, or influencers.canView). */
 export function canViewCreatorProfile(user: RevenuePermissionUser) {
   if (!user || user.role === "influencer") return false;
   if (user.role === "superadmin" || user.role === "admin") return true;
-  return Boolean(user.modulePermissions?.influencers?.canView || canViewCreatorRevenueAdmin(user));
+  return Boolean(user.modulePermissions?.influencers?.canView);
 }
 
 export function isInfluencerRole(user: { role?: string } | null | undefined) {

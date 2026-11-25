@@ -267,6 +267,7 @@ export function RevenueTitlesTable({
   error,
   onRetry,
   emptyLabel,
+  thumbnails,
 }: {
   items: RevenueTitle[];
   isLoading?: boolean;
@@ -274,6 +275,7 @@ export function RevenueTitlesTable({
   error?: unknown;
   onRetry?: () => void;
   emptyLabel: string;
+  thumbnails?: Record<string, string>;
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const state = <QueryState isLoading={isLoading} isError={isError} error={error} onRetry={onRetry} loadingLabel="Loading titles" />;
@@ -319,7 +321,20 @@ export function RevenueTitlesTable({
                       </button>
                     ) : null}
                   </TableCell>
-                  <TableCell className="font-medium">{item.title || "Untitled"}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-8 shrink-0 overflow-hidden rounded-md bg-muted">
+                        {thumbnails?.[item.titleId] ? (
+                          <img src={thumbnails[item.titleId]} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[10px] font-semibold text-muted-foreground">
+                            {(item.title || "?").slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <span className="min-w-0">{item.title || "Untitled"}</span>
+                    </div>
+                  </TableCell>
                   <TableCell className="capitalize text-muted-foreground">{series ? "Series" : "Movie"}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatWatchHours(item.watchHours)}</TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">{formatInr(item.amountInr)}</TableCell>
@@ -469,6 +484,18 @@ export function WatchHourRateForm({
       </Button>
     </div>
   );
+}
+
+export function ChangeChip({ change }: { change: number | null | undefined }) {
+  if (change === undefined) return null;
+  if (change === null) {
+    return <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">New</span>;
+  }
+  const up = change > 0;
+  const flat = change === 0;
+  const tone = flat ? "text-muted-foreground" : up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
+  const label = flat ? "No change" : `${up ? "+" : ""}${change.toFixed(1)}%`;
+  return <span className={`text-xs font-semibold ${tone}`}>{label} vs previous</span>;
 }
 
 export function Pager({
