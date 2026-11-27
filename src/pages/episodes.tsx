@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   useGetEpisodeList, useDeleteEpisode, useToggleEpisodeLock, getImageUrl, useGetMe,
 } from "@/lib/api-client";
+import { CREATOR_REMOVAL_NOTE } from "@/lib/creator-access";
 
 export default function EpisodesPage() {
   const { toast } = useToast();
@@ -33,7 +34,7 @@ export default function EpisodesPage() {
   const seasonFilter = searchParams.get("season") || "";
   const { data: me } = useGetMe();
   const isCreator = me?.role === "influencer";
-  const canDeleteEpisodes = !isCreator || !!me?.modulePermissions?.tvShows?.canDelete;
+  const canDeleteEpisodes = !isCreator;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("action");
@@ -122,6 +123,9 @@ export default function EpisodesPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {isCreator && (
+          <p className="text-sm text-muted-foreground">{CREATOR_REMOVAL_NOTE}</p>
+        )}
         {canDeleteEpisodes && (
         <Select value={bulkAction} onValueChange={setBulkAction}>
           <SelectTrigger className="w-36 bg-card border-border text-foreground h-10 rounded-lg text-sm">

@@ -128,6 +128,94 @@ export type RevenueOverviewData = {
   creators: OverviewCreator[];
 };
 
+export type ContentAnalyticsSort = "watchHours" | "revenue";
+export type ContentAnalyticsOrder = "asc" | "desc";
+export type ContentAnalyticsType = "movie" | "series";
+export type ContentAnalyticsStatus =
+  | "published"
+  | "draft"
+  | "processing"
+  | "moderation"
+  | "rejected"
+  | "removed";
+
+export type ContentAnalyticsEpisode = {
+  episodeId: string;
+  season: number | null;
+  episode: number | null;
+  title: string;
+  earningUnits: number;
+  views: number;
+  uniqueViewers: number;
+} & MoneyFields;
+
+export type ContentAnalyticsItem = {
+  contentId: string;
+  title: string;
+  type: ContentAnalyticsType;
+  poster: string | null;
+  thumbnail: string | null;
+  status: string;
+  creatorId: string;
+  creatorName: string;
+  creatorEmail: string;
+  earningUnits: number;
+  views: number;
+  uniqueViewers: number;
+  inCatalog: boolean;
+  rateInrPerHour: number;
+  rateSource: RateSource;
+  episodeCount?: number;
+  episodes?: ContentAnalyticsEpisode[];
+} & MoneyFields;
+
+export type ContentAnalyticsTotals = {
+  contentCount: number;
+  movieCount: number;
+  seriesCount: number;
+  watchSeconds: number;
+  watchHours: number;
+  amountPaise: number;
+  amountInr: number;
+  earningUnits: number;
+  views: number;
+  uniqueViewers: number;
+};
+
+export type ContentAnalyticsRate = {
+  rateInrPerHour: number;
+  rateEffectiveFrom: string;
+  rateSource: RateSource;
+};
+
+export type ContentAnalyticsData = {
+  currency: "INR";
+  timezone: string;
+  period: RevenuePeriod;
+  sort: ContentAnalyticsSort;
+  order: ContentAnalyticsOrder;
+  viewsScope: "lifetime";
+  uniqueViewersScope: "period";
+  revenueNote: string;
+  creatorId?: string;
+  rate?: ContentAnalyticsRate;
+  totals: ContentAnalyticsTotals;
+  items: ContentAnalyticsItem[];
+};
+
+export type ContentAnalyticsScope = "creator" | "admin-one" | "admin-all";
+
+export type ContentAnalyticsQuery = {
+  selection: PeriodSelection;
+  sort: ContentAnalyticsSort;
+  order: ContentAnalyticsOrder;
+  type: "" | ContentAnalyticsType;
+  status: "" | ContentAnalyticsStatus;
+  page: number;
+  limit: number;
+  creatorId?: string;
+};
+
 export type PeriodSelection = {
   period: RevenuePeriodKey;
   from: string;
@@ -247,6 +335,32 @@ export function formatWatchHours(watchHours: number) {
   return `${new Intl.NumberFormat("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 4 }).format(n)} h`;
 }
 
+export function formatCount(value: number) {
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Number(value) || 0);
+}
+
+export function contentStatusLabel(status?: string | null) {
+  if (status === "moderation") return "In review";
+  if (status === "published") return "Published";
+  if (status === "processing") return "Processing";
+  if (status === "rejected") return "Rejected";
+  if (status === "removed") return "Removed";
+  if (status === "draft") return "Draft";
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : "—";
+}
+
+export function contentAnalyticsQueryString(query: ContentAnalyticsQuery, includeCreator: boolean) {
+  return periodQueryString(query.selection, {
+    sort: query.sort,
+    order: query.order,
+    type: query.type || undefined,
+    status: query.status || undefined,
+    page: query.page,
+    limit: query.limit,
+    creatorId: includeCreator ? query.creatorId : undefined,
+  });
+}
+
 export function formatDayKey(dateKey: string) {
   if (!DATE_KEY.test(dateKey)) return dateKey || "—";
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -363,6 +477,26 @@ export function useCreatorRate(creatorId?: string, enabled = true) {
         `/api/admin/creator-revenue/creators/${encodeURIComponent(creatorId || "")}/rate`
       ) as Promise<Wrapped<CreatorRatePayload>>,
     enabled: enabled && !!creatorId,
+  });
+}
+
+export function useContentAnalytics(
+  scope: ContentAnalyticsScope,
+  query: ContentAnalyticsQuery,
+  creatorId?: string
+) {
+  const ready = isPeriodReady(query.selection) && (scope !== "admin-one" || !!creatorId);
+  const qs = contentAnalyticsQueryString(query, scope === "admin-all");
+  const path =
+    scope === "creator"
+      ? `/api/creator/revenue/content?${qs}`
+      : scope === "admin-one"
+        ? `/api/admin/creators/${encodeURIComponent(creatorId || "")}/content-analytics?${qs}`
+        : `/api/admin/content-analytics?${qs}`;
+  return useQuery({
+    queryKey: [...revenueKey, "content-analytics", scope, creatorId || "", query],
+    queryFn: () => apiRequest(path) as Promise<Wrapped<ContentAnalyticsData>>,
+    enabled: ready,
   });
 }
 

@@ -32,7 +32,8 @@ import {
   useCreatorRevenueOverview,
   useSetCreatorRate,
 } from "@/lib/creator-revenue";
-import { QueryState, RateHistoryList, RevenueTitlesTable, SourceBadge, WatchHourRateForm } from "@/components/creator-revenue-ui";
+import { ContentPerformancePanel } from "@/components/content-performance";
+import { QueryState, RateHistoryList, SourceBadge, WatchHourRateForm } from "@/components/creator-revenue-ui";
 
 const PLATFORM_LABEL: Record<SocialPlatform, string> = {
   instagram: "Instagram",
@@ -429,9 +430,8 @@ function StaffRevenue({ creatorId, canEdit }: { creatorId: string; canEdit: bool
           </CardContent>
         </Card>
       </div>
-      {overview.isError ? <QueryState isError error={overview.error} onRetry={() => overview.refetch()} /> : (
-        <RevenueTitlesTable items={creator?.titles || []} emptyLabel="No credited watch time in the last 30 days." isLoading={overview.isLoading} />
-      )}
+      {overview.isError ? <QueryState isError error={overview.error} onRetry={() => overview.refetch()} /> : null}
+      <ContentPerformancePanel scope="admin-one" creatorId={creatorId} />
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">Rate</CardTitle></CardHeader>
         <CardContent>

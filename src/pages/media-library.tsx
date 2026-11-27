@@ -41,8 +41,10 @@ import {
   getImageUrl,
   useReprocessMediaHls,
   uploadMediaFiles,
+  useGetMe,
 } from "@/lib/api-client";
 import { useUploadQueue } from "@/contexts/UploadQueueContext";
+import { CREATOR_REMOVAL_NOTE } from "@/lib/creator-access";
 import { useQueryClient } from "@tanstack/react-query";
 
 const PAGE_LIMIT = 50;
@@ -69,6 +71,8 @@ const SOURCE_OPTIONS = [
 
 export default function MediaLibraryPage() {
   const { toast } = useToast();
+  const { data: me } = useGetMe();
+  const isCreator = me?.role === "influencer";
 
   // View & navigation
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -366,6 +370,9 @@ export default function MediaLibraryPage() {
                   <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileUpload} />
                 </label>
               </Button>
+              {isCreator ? (
+                <p className="self-center text-sm text-muted-foreground max-w-xs">{CREATOR_REMOVAL_NOTE}</p>
+              ) : (
               <Button
                 variant="destructive"
                 onClick={() =>
@@ -375,6 +382,7 @@ export default function MediaLibraryPage() {
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Folder
               </Button>
+              )}
             </>
           )}
         </div>

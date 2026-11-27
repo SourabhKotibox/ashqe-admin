@@ -4,6 +4,7 @@ import { useGetMovies, useGetTVShows, getImageUrl } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContentPerformancePanel } from "@/components/content-performance";
 import {
   ChangeChip,
   EarningsChart,
@@ -218,6 +219,8 @@ export default function CreatorEarningsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ContentPerformancePanel scope="creator" />
 
       <div className="space-y-3">
         <h2 className="text-base font-semibold">By title</h2>

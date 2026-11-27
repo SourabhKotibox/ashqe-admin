@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
+import { ADMIN_CONTENT_ANALYTICS_PATH, ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole, readMustChangePasswordFlag, writeMustChangePasswordFlag } from "@/lib/creator-access";
 import { ForcePasswordChange } from "@/components/force-password-change";
 import { Link, useLocation } from "wouter";
 import {
@@ -49,6 +49,7 @@ import {
   TrendingUp,
   Handshake,
   IndianRupee,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -95,6 +96,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: "/influencers", label: "Role-Based Access", icon: Shield, permission: "influencers" },
         { href: "/creator-applications", label: "Creator Applications", icon: Clapperboard, permission: "influencers" },
         { href: ADMIN_CREATOR_REVENUE_PATH, label: "Creator Revenue", icon: IndianRupee, permission: "creatorRevenue" },
+        { href: ADMIN_CONTENT_ANALYTICS_PATH, label: "Content analytics", icon: BarChart3, permission: "creatorRevenue" },
         { href: "/approvals", label: "Approvals", icon: CheckCircle, permission: "movies" },
       ],
     },
@@ -206,6 +208,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const hasPermission = (permission: string | null, href?: string): boolean => {
     if (href === CREATOR_EARNINGS_PATH) return isInfluencerRole(user);
     if (href === ADMIN_CREATOR_REVENUE_PATH) return canViewCreatorRevenueAdmin(user);
+    if (href === ADMIN_CONTENT_ANALYTICS_PATH) return canViewCreatorRevenueAdmin(user);
 
     // Super admin has all permissions
     if (user?.role === "superadmin") return true;

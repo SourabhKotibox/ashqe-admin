@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Clock, IndianRupee, Search, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { ContentPerformancePanel } from "@/components/content-performance";
+import { ADMIN_CONTENT_ANALYTICS_PATH } from "@/lib/creator-access";
 import { getAdminUsers, useGetMe } from "@/lib/api-client";
 import { canEditCreatorRevenue, canViewCreatorProfile } from "@/lib/creator-access";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +17,6 @@ import {
   QueryState,
   RateHistoryList,
   RevenueStat,
-  RevenueTitlesTable,
   SourceBadge,
   WatchHourRateForm,
 } from "@/components/creator-revenue-ui";
@@ -103,7 +104,12 @@ export default function AdminCreatorRevenuePage() {
             {overview?.period ? ` ${formatPeriodRange(overview.period)}.` : ""}
           </p>
         </div>
-        <PeriodFilter value={selection} onChange={changePeriod} />
+        <div className="flex flex-col items-start gap-3 sm:items-end">
+          <PeriodFilter value={selection} onChange={changePeriod} />
+          <Link href={ADMIN_CONTENT_ANALYTICS_PATH} className="text-sm font-semibold text-primary hover:underline">
+            Content analytics
+          </Link>
+        </div>
       </div>
 
       {ready && (overviewQuery.isLoading || overviewQuery.isError ? (
@@ -247,6 +253,7 @@ export default function AdminCreatorRevenuePage() {
                     canEdit={canEdit}
                     canOpenProfile={canOpenProfile}
                     accessPending={meLoading}
+                    selection={selection}
                     onToggle={() => setOpenCreator((current) => current === creator.creatorId ? null : creator.creatorId)}
                     onEdit={() => {
                       setOpenCreator(creator.creatorId);
@@ -271,6 +278,7 @@ function CreatorRows({
   canEdit,
   canOpenProfile,
   accessPending,
+  selection,
   onToggle,
   onEdit,
 }: {
@@ -280,6 +288,7 @@ function CreatorRows({
   canEdit: boolean;
   canOpenProfile: boolean;
   accessPending: boolean;
+  selection: PeriodSelection;
   onToggle: () => void;
   onEdit: () => void;
 }) {
@@ -325,9 +334,13 @@ function CreatorRows({
         <TableRow>
           <TableCell colSpan={6} className="bg-muted/20">
             <div className="space-y-4 py-2">
-              <RevenueTitlesTable
-                items={creator.titles || []}
-                emptyLabel="No title breakdown in this period."
+              <ContentPerformancePanel
+                key={`${selection.period}:${selection.from}:${selection.to}`}
+                scope="admin-one"
+                creatorId={creator.creatorId}
+                initialSelection={selection}
+                embedded
+                heading="Content performance"
               />
               {editing && <CreatorRateEditor creatorId={creator.creatorId} canEdit={canEdit} accessPending={accessPending} />}
             </div>

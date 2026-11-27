@@ -33,6 +33,7 @@ import {
 } from "@/lib/api-client";
 import { getImageUrl } from "@/lib/api-client";
 import { SubmitForReviewButton } from "@/components/submit-for-review";
+import { CREATOR_REMOVAL_NOTE } from "@/lib/creator-access";
 
 type TVShowRow = {
   id: string;
@@ -145,7 +146,7 @@ export default function TvShowsPage() {
 
   const tvShows = tvShowsData?.data || [];
 
-  const canDelete = isCreator ? !!me?.modulePermissions?.tvShows?.canDelete : true;
+  const canDelete = !isCreator;
 
   const deleteMutation = useDeleteTVShow();
   const toggleFeaturedMutation = useToggleTVShowFeatured();
@@ -289,6 +290,9 @@ export default function TvShowsPage() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
+        {isCreator && (
+          <p className="text-sm text-muted-foreground">{CREATOR_REMOVAL_NOTE}</p>
+        )}
         {!isCreator && <>
         <Select value={bulkAction} onValueChange={setBulkAction}>
           <SelectTrigger className="w-36 bg-card border-border text-foreground h-10 rounded-lg text-sm">

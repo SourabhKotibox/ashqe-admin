@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useGetTVShows, useGetSeasonList,
+  useGetTVShows, useGetSeasonList, useGetTVShowById, useGetMe,
   useGetEpisodeById, useCreateEpisode, useUpdateEpisode,
   getImageUrl, getMediaFileById
 } from "@/lib/api-client";
+import { CREATOR_REMOVAL_NOTE, creatorVideoLocked, creatorVideoSaveError, keepStoredCreatorVideo } from "@/lib/creator-access";
 import MediaPicker from "@/components/MediaPicker";
 import CatalogPicker from "@/components/CatalogPicker";
 
@@ -116,6 +117,8 @@ export default function EpisodeForm() {
   const isShortDramaRoute = location.includes("short-drama");
 
   // API
+  const { data: me } = useGetMe();
+  const isCreator = me?.role === "influencer";
   const { data: showsData, isLoading: loadingShows } = useGetTVShows({ limit: 100 });
   const { data: seasonsData } = useGetSeasonList(tvShowId ? { tvShowId: tvShowId } : {});
   const { data: existingEpisode, isLoading: loadingEpisode } = useGetEpisodeById(isEdit ? id : "");
@@ -124,6 +127,9 @@ export default function EpisodeForm() {
 
   const tvShows: any[] = showsData?.data || [];
   const availableSeasons: any[] = seasonsData?.data || [];
+  const { data: parentShowData, isLoading: parentShowLoading } = useGetTVShowById(isCreator && isEdit && tvShowId ? tvShowId : "");
+  const seriesStatus = (parentShowData as any)?.data?.status || (parentShowData as any)?.status;
+  const videoLocked = isCreator && isEdit && (parentShowLoading || creatorVideoLocked(seriesStatus));
 
   const handleVideoSelect = (media: any) => {
     setVideoFilePath(media.filePath);
@@ -380,11 +386,18 @@ export default function EpisodeForm() {
         : [],
     };
 
+    const videoPayload = isCreator && creatorVideoLocked(seriesStatus) ? keepStoredCreatorVideo(payload, existingEpisode) : payload;
+    const videoLock = creatorVideoSaveError(isCreator, existingEpisode, videoPayload, seriesStatus);
+    if (videoLock) {
+      toast({ title: videoLock, variant: "destructive" });
+      return;
+    }
+
     try {
       if (isEdit) {
-        await updateMutation.mutateAsync({ id, data: payload });
+        await updateMutation.mutateAsync({ id, data: videoPayload });
       } else {
-        await createMutation.mutateAsync(payload);
+        await createMutation.mutateAsync(videoPayload);
       }
       queryClient.invalidateQueries({ queryKey: ["episode-list"] });
       queryClient.invalidateQueries({ queryKey: ["season-list"] });
@@ -543,10 +556,15 @@ export default function EpisodeForm() {
             </div>
 
             {/* Video Source */}
+            {creatorVideoLocked(seriesStatus) && (
+              <p className="text-sm text-muted-foreground">
+                This series is published or in review, so the episode video cannot be replaced or removed. {CREATOR_REMOVAL_NOTE}
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <Label className="text-foreground text-sm font-medium">Video Upload Type</Label>
-                <Select value={videoUploadType} onValueChange={setVideoUploadType}>
+                <Select value={videoUploadType} onValueChange={setVideoUploadType} disabled={videoLocked}>
                   <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -560,8 +578,8 @@ export default function EpisodeForm() {
               <div className="space-y-1.5">
                 <Label className="text-foreground text-sm font-medium">Video</Label>
                 {videoUploadType === "local" ? (
-                  <div onClick={() => setVideoPickerOpen(true)}
-                    className="border-2 border-dashed border-border rounded-lg h-10 flex items-center justify-center cursor-pointer hover:border-primary/40 bg-muted/20 transition-colors overflow-hidden w-full">
+                  <div onClick={() => { if (!videoLocked) setVideoPickerOpen(true); }}
+                    className={`border-2 border-dashed border-border rounded-lg h-10 flex items-center justify-center bg-muted/20 transition-colors overflow-hidden w-full ${videoLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:border-primary/40"}`}>
                     {videoFilePath ? (
                       <span className="text-sm text-foreground truncate px-3 w-full text-center block" title={getImageUrl(videoFilePath)}>
                         {getImageUrl(videoFilePath)}
@@ -575,6 +593,7 @@ export default function EpisodeForm() {
                     placeholder={videoUploadType === "hls" ? "https://cdn.example.com/video.m3u8" : "https://..."}
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
+                    readOnly={videoLocked}
                     className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-10 rounded-lg text-sm"
                   />
                 )}
@@ -657,7 +676,7 @@ export default function EpisodeForm() {
             <div className="rounded-xl border border-border bg-muted/10 p-5 space-y-5">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-foreground">Enable quality-specific video files</p>
-                <Switch checked={qualityEnabled} onCheckedChange={setQualityEnabled} className="data-[state=checked]:bg-primary" />
+                <Switch checked={qualityEnabled} onCheckedChange={setQualityEnabled} disabled={videoLocked} className="data-[state=checked]:bg-primary" />
               </div>
               {qualityEnabled && (
                 <div className="space-y-4">
@@ -665,7 +684,7 @@ export default function EpisodeForm() {
                     <div key={row.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                       <div className="space-y-1.5">
                         <Label className="text-foreground text-sm font-medium">Upload Type</Label>
-                        <Select value={row.type} onValueChange={(v) => updateQualityRow(row.id, "type", v)}>
+                        <Select value={row.type} onValueChange={(v) => updateQualityRow(row.id, "type", v)} disabled={videoLocked}>
                           <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
                             <SelectValue />
                           </SelectTrigger>
@@ -677,7 +696,7 @@ export default function EpisodeForm() {
                       </div>
                       <div className="flex-1 space-y-1.5">
                         <Label className="text-foreground text-sm font-medium">Quality</Label>
-                        <Select value={row.quality} onValueChange={(v) => updateQualityRow(row.id, "quality", v)}>
+                        <Select value={row.quality} onValueChange={(v) => updateQualityRow(row.id, "quality", v)} disabled={videoLocked}>
                           <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
                             <SelectValue />
                           </SelectTrigger>
@@ -692,28 +711,33 @@ export default function EpisodeForm() {
                         <div className="flex-1 space-y-1.5">
                           <Label className="text-foreground text-sm font-medium">File</Label>
                           {row.type === "local" ? (
-                            <div onClick={() => { setCurrentQualityRowId(row.id); setQualityPickerOpen(true); }}
-                              className="border-2 border-dashed border-border rounded-lg h-10 flex items-center justify-center cursor-pointer hover:border-primary/40 bg-muted/20 transition-colors overflow-hidden px-3 text-sm text-foreground truncate min-w-0 w-full animate-none">
+                            <div onClick={() => { if (videoLocked) return; setCurrentQualityRowId(row.id); setQualityPickerOpen(true); }}
+                              className={`border-2 border-dashed border-border rounded-lg h-10 flex items-center justify-center bg-muted/20 transition-colors overflow-hidden px-3 text-sm text-foreground truncate min-w-0 w-full animate-none ${videoLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:border-primary/40"}`}>
                               {row.filePath || "Select file..."}
                             </div>
                           ) : (
                             <Input placeholder="https://..." value={row.url} onChange={(e) => updateQualityRow(row.id, "url", e.target.value)}
+                              readOnly={videoLocked}
                               className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-10 rounded-lg text-sm" />
                           )}
                         </div>
+                        {!videoLocked && (
                         <button type="button" onClick={() => removeQualityRow(row.id)}
                           className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary/15 text-primary hover:bg-primary/80/30">
                           <Trash2 className="h-4 w-4" />
                         </button>
+                        )}
                       </div>
                     </div>
                   ))}
+                  {!videoLocked && (
                   <div className="flex justify-start">
                     <Button type="button" onClick={addQualityRow}
                       className="bg-primary hover:bg-primary/90 text-white h-9 gap-2 rounded-lg px-4 text-sm font-semibold">
                       <Plus className="h-4 w-4" /> Add Quality
                     </Button>
                   </div>
+                  )}
                 </div>
               )}
             </div>

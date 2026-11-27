@@ -20,7 +20,7 @@ import {
   useGetSections, getImageUrl,
   getMediaFileById, useGetSubscriptionPlans, useGetMe,
 } from "@/lib/api-client";
-import { omitCreatorEditorialFields } from "@/lib/creator-access";
+import { CREATOR_REMOVAL_NOTE, creatorVideoLocked, creatorVideoSaveError, keepStoredCreatorVideo, omitCreatorEditorialFields } from "@/lib/creator-access";
 import { SubmitForReviewButton } from "@/components/submit-for-review";
 
 /** Map subscription plan display name → stored planRequired key */
@@ -205,6 +205,7 @@ export default function MovieForm() {
   const [qualityRows, setQualityRows] = useState<QualityRow[]>([
     { id: "1", type: "url", quality: "480p", filePath: "", url: "" },
   ]);
+  const videoLocked = isCreator && creatorVideoLocked(status);
 
   /* ---- Subtitle Info ---- */
   const [selectedSubtitleLanguages, setSelectedSubtitleLanguages] = useState<string[]>([]);
@@ -638,8 +639,15 @@ export default function MovieForm() {
         setIsSaving(false);
         return;
       }
+      const videoPayload = isCreator && creatorVideoLocked(movie?.status) ? keepStoredCreatorVideo(payload, movie) : payload;
+      const videoLock = creatorVideoSaveError(isCreator, movie, videoPayload);
+      if (videoLock) {
+        toast({ title: videoLock, variant: "destructive" });
+        setIsSaving(false);
+        return;
+      }
 
-      const body = omitCreatorEditorialFields(payload, isCreator);
+      const body = omitCreatorEditorialFields(videoPayload, isCreator);
       if (isEdit) {
         await updateMovieMutation.mutateAsync({ id: id!, data: body });
       } else {
@@ -902,7 +910,7 @@ export default function MovieForm() {
                     {status === "rejected" && movie?.rejectionReason && (
                       <p className="text-xs text-rose-400">Rejected: {movie.rejectionReason}</p>
                     )}
-                    <p className="text-[11px] text-muted-foreground">Publishing is done by an editor after you submit for review.</p>
+                    <p className="text-[11px] text-muted-foreground">Publishing is done by an editor after you submit for review. You cannot unpublish this title or mark it rejected.</p>
                   </>
                 ) : (
                   <Select value={status} onValueChange={(v) => setStatus(v as any)}>
@@ -1278,6 +1286,11 @@ export default function MovieForm() {
         {activeTab === "Quality Info" && (
           <div className="p-6 space-y-6">
             <SectionHeading title="Video Source" />
+            {videoLocked && (
+              <p className="text-sm text-muted-foreground">
+                This title is published or in review, so the video cannot be replaced or removed. {CREATOR_REMOVAL_NOTE}
+              </p>
+            )}
             {processingMediaId && (
               <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-foreground">
                 Video is attached — you can save the movie now. Transcoding continues in the background; HLS qualities will auto-fill when ready.
@@ -1298,7 +1311,7 @@ export default function MovieForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                   <Label className="text-foreground text-sm font-medium">Video Upload Type</Label>
-                  <Select value={videoUploadType === "hls" ? "hls" : videoUploadType} onValueChange={setVideoUploadType}>
+                  <Select value={videoUploadType === "hls" ? "hls" : videoUploadType} onValueChange={setVideoUploadType} disabled={videoLocked}>
                     <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
                       <SelectValue />
                     </SelectTrigger>
@@ -1314,8 +1327,8 @@ export default function MovieForm() {
                   {videoUploadType === "local" || videoUploadType === "hls" ? (
                     <div className="space-y-1.5">
                       <div
-                        onClick={() => setVideoPickerOpen(true)}
-                        className="border-2 border-dashed border-border rounded-lg min-h-10 flex items-center justify-center cursor-pointer hover:border-primary/40 bg-muted/20 transition-colors overflow-hidden w-full py-2"
+                        onClick={() => { if (!videoLocked) setVideoPickerOpen(true); }}
+                        className={`border-2 border-dashed border-border rounded-lg min-h-10 flex items-center justify-center bg-muted/20 transition-colors overflow-hidden w-full py-2 ${videoLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:border-primary/40"}`}
                       >
                         {(videoUploadType === "hls" ? videoUrl : videoFilePath) ? (
                           <span
@@ -1339,6 +1352,7 @@ export default function MovieForm() {
                       placeholder="https://cdn.example.com/video.m3u8"
                       value={videoUrl}
                       onChange={(e) => setVideoUrl(e.target.value)}
+                      readOnly={videoLocked}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-10 rounded-lg text-sm"
                     />
                   )}
@@ -1355,7 +1369,7 @@ export default function MovieForm() {
                     Auto-filled from media library HLS, or generated in the background when you upload a local video.
                   </p>
                 </div>
-                <Switch checked={qualityEnabled} onCheckedChange={setQualityEnabled} className="data-[state=checked]:bg-primary" />
+                <Switch checked={qualityEnabled} onCheckedChange={setQualityEnabled} disabled={videoLocked} className="data-[state=checked]:bg-primary" />
               </div>
 
               {qualityEnabled && (
@@ -1364,7 +1378,7 @@ export default function MovieForm() {
                     <div key={row.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                       <div className="space-y-1.5">
                         <Label className="text-foreground text-sm font-medium">Upload Type</Label>
-                        <Select value={row.type} onValueChange={(v) => updateQualityRow(row.id, "type", v)}>
+                        <Select value={row.type} onValueChange={(v) => updateQualityRow(row.id, "type", v)} disabled={videoLocked}>
                           <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
                             <SelectValue />
                           </SelectTrigger>
@@ -1376,7 +1390,7 @@ export default function MovieForm() {
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-foreground text-sm font-medium">Quality</Label>
-                        <Select value={row.quality} onValueChange={(v) => updateQualityRow(row.id, "quality", v)}>
+                        <Select value={row.quality} onValueChange={(v) => updateQualityRow(row.id, "quality", v)} disabled={videoLocked}>
                           <SelectTrigger className="bg-muted border-border text-foreground h-10 rounded-lg text-sm">
                             <SelectValue />
                           </SelectTrigger>
@@ -1396,8 +1410,8 @@ export default function MovieForm() {
                           <Label className="text-foreground text-sm font-medium">Video File / URL</Label>
                           {row.type === "local" ? (
                             <div
-                              onClick={() => { setCurrentQualityRowId(row.id); setQualityPickerOpen(true); }}
-                              className="border-2 border-dashed border-border rounded-lg h-10 flex items-center justify-center cursor-pointer hover:border-primary/40 bg-muted/20 transition-colors overflow-hidden w-full"
+                              onClick={() => { if (videoLocked) return; setCurrentQualityRowId(row.id); setQualityPickerOpen(true); }}
+                              className={`border-2 border-dashed border-border rounded-lg h-10 flex items-center justify-center bg-muted/20 transition-colors overflow-hidden w-full ${videoLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:border-primary/40"}`}
                             >
                               {row.filePath ? (
                                 <span className="text-sm text-foreground truncate px-3 w-full text-center block" title={getImageUrl(row.filePath)}>
@@ -1412,11 +1426,12 @@ export default function MovieForm() {
                               placeholder="https://..."
                               value={row.url}
                               onChange={(e) => updateQualityRow(row.id, "url", e.target.value)}
+                              readOnly={videoLocked}
                               className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-10 rounded-lg text-sm"
                             />
                           )}
                         </div>
-                        {qualityRows.length > 1 && (
+                        {qualityRows.length > 1 && !videoLocked && (
                           <button type="button" onClick={() => removeQualityRow(row.id)}
                             className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary/15 text-primary hover:bg-primary/80/30 shrink-0">
                             <Trash2 className="h-4 w-4" />
@@ -1425,12 +1440,14 @@ export default function MovieForm() {
                       </div>
                     </div>
                   ))}
+                  {!videoLocked && (
                   <div className="flex justify-end">
                     <Button type="button" onClick={addQualityRow}
                       className="bg-primary hover:bg-primary/90 text-white h-9 gap-2 rounded-lg px-4 text-sm font-semibold">
                       <Plus className="h-4 w-4" /> Add Quality
                     </Button>
                   </div>
+                  )}
                 </div>
               )}
             </div>
