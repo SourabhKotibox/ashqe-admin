@@ -32,6 +32,7 @@ import {
   useGetSubscriptionPlans,
 } from "@/lib/api-client";
 import { SubmitForReviewButton } from "@/components/submit-for-review";
+import { CREATOR_REMOVAL_NOTE } from "@/lib/creator-access";
 import { getImageUrl } from "@/lib/api-client";
 
 type MovieRow = {
@@ -145,7 +146,7 @@ export default function MoviesPage() {
 
   const movies = moviesData?.data || [];
 
-  const canDelete = isCreator ? !!me?.modulePermissions?.movies?.canDelete : true;
+  const canDelete = !isCreator;
 
   const deleteMutation = useDeleteMovie();
   const toggleFeaturedMutation = useToggleMovieFeatured();
@@ -289,6 +290,9 @@ export default function MoviesPage() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
+        {isCreator && (
+          <p className="text-sm text-muted-foreground">{CREATOR_REMOVAL_NOTE}</p>
+        )}
         {!isCreator && <>
         <Select value={bulkAction} onValueChange={setBulkAction}>
           <SelectTrigger className="w-36 bg-card border-border text-foreground h-10 rounded-lg text-sm">

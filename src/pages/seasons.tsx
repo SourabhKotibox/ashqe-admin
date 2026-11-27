@@ -19,6 +19,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useGetSeasonList, useGetEpisodeList, useDeleteEpisode, getImageUrl, useGetMe } from "@/lib/api-client";
+import { CREATOR_REMOVAL_NOTE } from "@/lib/creator-access";
 
 export default function SeasonsPage() {
   const { toast } = useToast();
@@ -26,7 +27,7 @@ export default function SeasonsPage() {
   const [, setLocation] = useLocation();
   const { data: me } = useGetMe();
   const isCreator = me?.role === "influencer";
-  const canDeleteEpisodes = !isCreator || !!me?.modulePermissions?.tvShows?.canDelete;
+  const canDeleteEpisodes = !isCreator;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("action");
@@ -86,6 +87,9 @@ export default function SeasonsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {isCreator && (
+          <p className="text-sm text-muted-foreground">{CREATOR_REMOVAL_NOTE}</p>
+        )}
         {canDeleteEpisodes && (
         <>
         <Select value={bulkAction} onValueChange={setBulkAction}>

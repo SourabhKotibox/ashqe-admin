@@ -169,7 +169,7 @@ import MembershipPage from "@/pages/membership";
 import PartnerProgramPage from "@/pages/partner-program";
 import CreatorProgramPage from "@/pages/creator-program";
 import CreatorApplicationsPage from "@/pages/creator-applications";
-import { ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorProfile, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole } from "@/lib/creator-access";
+import { ADMIN_CONTENT_ANALYTICS_PATH, ADMIN_CREATOR_REVENUE_PATH, CREATOR_EARNINGS_PATH, canViewCreatorProfile, canViewCreatorRevenueAdmin, influencerMayOpenPath, isInfluencerRole } from "@/lib/creator-access";
 import AdminPartnersPage from "@/pages/admin-partners";
 import AdminPartnerDetailPage from "@/pages/admin-partner-detail";
 import { captureReferralFromUrl } from "@/lib/partner-api";
@@ -184,6 +184,7 @@ import Reviews from "@/pages/reviews";
 import RevenueAnalyticsPage from "@/pages/revenue-analytics";
 import CreatorEarningsPage from "@/pages/creator-earnings";
 import AdminCreatorRevenuePage from "@/pages/admin-creator-revenue";
+import AdminContentAnalyticsPage from "@/pages/admin-content-analytics";
 import StaffCreatorProfilePage from "@/pages/creator-profile";
 import TvShowsPage from "@/pages/tv-shows";
 import TvShowForm from "@/pages/tv-show-form";
@@ -244,6 +245,7 @@ const routePermissions: Record<string, string | null> = {
   "/revenue-analytics": "subscriptionPlans",
   [CREATOR_EARNINGS_PATH]: null,
   [ADMIN_CREATOR_REVENUE_PATH]: "creatorRevenue",
+  [ADMIN_CONTENT_ANALYTICS_PATH]: "creatorRevenue",
 };
 
 const hasPermissionForRoute = (path: string, user: any): boolean => {
@@ -251,6 +253,9 @@ const hasPermissionForRoute = (path: string, user: any): boolean => {
     return isInfluencerRole(user);
   }
   if (path === ADMIN_CREATOR_REVENUE_PATH || path.startsWith(`${ADMIN_CREATOR_REVENUE_PATH}/`)) {
+    return canViewCreatorRevenueAdmin(user);
+  }
+  if (path === ADMIN_CONTENT_ANALYTICS_PATH || path.startsWith(`${ADMIN_CONTENT_ANALYTICS_PATH}/`)) {
     return canViewCreatorRevenueAdmin(user);
   }
   if (path === "/creators" || path.startsWith("/creators/")) {
@@ -405,6 +410,7 @@ function AdminRoutes() {
               <Route path="/revenue-analytics" component={RevenueAnalyticsPage} />
               <Route path="/earnings" component={CreatorEarningsPage} />
               <Route path="/creator-revenue" component={AdminCreatorRevenuePage} />
+              <Route path="/content-analytics" component={AdminContentAnalyticsPage} />
               <Route path="/creators/:id" component={StaffCreatorProfilePage} />
         <Route component={NotFound} />
       </Switch>

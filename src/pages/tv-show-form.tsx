@@ -21,7 +21,7 @@ import {
   useGetSections, getImageUrl,
   getMediaFileById, useGetSubscriptionPlans, useGetMe,
 } from "@/lib/api-client";
-import { omitCreatorEditorialFields } from "@/lib/creator-access";
+import { creatorVideoLocked, creatorVideoSaveError, keepStoredCreatorVideo, omitCreatorEditorialFields } from "@/lib/creator-access";
 import { SubmitForReviewButton } from "@/components/submit-for-review";
 
 /** Map subscription plan display name → stored planRequired key */
@@ -635,7 +635,15 @@ export default function TvShowForm() {
         return;
       }
 
-      const body = omitCreatorEditorialFields(payload, isCreator);
+      const videoPayload = isCreator && creatorVideoLocked(tvShow?.status) ? keepStoredCreatorVideo(payload, tvShow) : payload;
+      const videoLock = creatorVideoSaveError(isCreator, tvShow, videoPayload);
+      if (videoLock) {
+        toast({ title: videoLock, variant: "destructive" });
+        setIsSaving(false);
+        return;
+      }
+
+      const body = omitCreatorEditorialFields(videoPayload, isCreator);
       if (isEdit) {
         await updateTVShowMutation.mutateAsync({ id: id!, data: body });
       } else {
@@ -900,7 +908,7 @@ export default function TvShowForm() {
                     {status === "rejected" && tvShow?.rejectionReason && (
                       <p className="text-xs text-rose-400">Rejected: {tvShow.rejectionReason}</p>
                     )}
-                    <p className="text-[11px] text-muted-foreground">Publishing is done by an editor after you submit for review.</p>
+                    <p className="text-[11px] text-muted-foreground">Publishing is done by an editor after you submit for review. You cannot unpublish this title or mark it rejected.</p>
                   </>
                 ) : (
                   <Select value={status} onValueChange={(v) => setStatus(v as any)}>

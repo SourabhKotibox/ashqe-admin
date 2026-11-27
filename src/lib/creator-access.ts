@@ -14,7 +14,9 @@ const CATALOG: ModuleGrant = { canView: true, canCreate: true, canEdit: true, ca
  * `CREATOR_MODULE_PERMISSIONS` on ashqe-api-server. Approval grants this pack;
  * the console uses it so a creator sees these sections even when the login
  * payload is still missing flags.
- * Catalog edit/delete stay limited to rows the creator owns.
+ * Creators can edit their own rows. They cannot delete movies, series,
+ * episodes, or media folders: those canDelete flags stay false, and the API
+ * rejects the delete even if a stored flag is true.
  * `creatorRevenue.canView` is on so the earnings section is part of the pack.
  * canEdit stays off: creators cannot change rates.
  */
@@ -78,6 +80,87 @@ export const CREATOR_ROUTE_PREFIXES = CREATOR_ROUTES.map((route) => route.prefix
 
 export const CREATOR_EARNINGS_PATH = "/earnings";
 export const ADMIN_CREATOR_REVENUE_PATH = "/creator-revenue";
+export const ADMIN_CONTENT_ANALYTICS_PATH = "/content-analytics";
+
+export const CREATOR_REMOVAL_NOTE = "Content can only be removed by Ashqe admins.";
+
+/** Published and in-review titles cannot have their video replaced or cleared by a creator. */
+export function creatorVideoLocked(status?: string | null) {
+  return status === "published" || status === "moderation";
+}
+
+type StoredVideo = {
+  status?: string | null;
+  hlsUrl?: string | null;
+  videoUrl?: string | null;
+  sourceVideoUrl?: string | null;
+  videoQualities?: Array<{ url?: string | null }> | null;
+};
+
+/** Put the stored video back on a save so a locked title cannot be cleared or replaced. */
+export function keepStoredCreatorVideo<T extends Record<string, any>>(payload: T, existing?: StoredVideo | null): T {
+  if (!existing) return payload;
+  const next: Record<string, any> = { ...payload };
+  if (existing.hlsUrl) next.hlsUrl = existing.hlsUrl;
+  if (existing.videoUrl) next.videoUrl = existing.videoUrl;
+  if (existing.sourceVideoUrl) next.sourceVideoUrl = existing.sourceVideoUrl;
+  if (Array.isArray(existing.videoQualities) && existing.videoQualities.length) {
+    next.videoQualities = existing.videoQualities;
+  }
+  return next as T;
+}
+
+/**
+ * Client-side mirror of the API creator video lock.
+ * `statusOverride` is the parent series status for an episode.
+ */
+export function creatorVideoSaveError(
+  isCreator: boolean,
+  existing: StoredVideo | null | undefined,
+  next: { hlsUrl?: string | null; videoQualities?: Array<{ url?: string | null }> | null },
+  statusOverride?: string | null,
+) {
+  if (!isCreator || !existing) return null;
+  const previousVideo = [existing.hlsUrl, existing.videoUrl, existing.sourceVideoUrl]
+    .map((value) => String(value || "").trim())
+    .find(Boolean) || "";
+  const nextVideo = String(next.hlsUrl || "").trim();
+  const previousQualities = (existing.videoQualities || []).map((row) => String(row?.url || "").trim()).filter(Boolean).sort();
+  const nextQualities = (next.videoQualities || []).map((row) => String(row?.url || "").trim()).filter(Boolean).sort();
+  if (previousVideo && !nextVideo) return "Creators cannot remove the video from their content.";
+  if (previousQualities.length > 0 && nextQualities.length === 0) return "Creators cannot remove the video from their content.";
+  const locked = creatorVideoLocked(statusOverride ?? existing.status);
+  if (!locked) return null;
+  if (previousVideo && nextVideo && previousVideo !== nextVideo) {
+    return "Creators cannot replace the video on content that is published or in review.";
+  }
+  if (previousQualities.length > 0 && previousQualities.join("|") !== nextQualities.join("|")) {
+    return "Creators cannot replace the video on content that is published or in review.";
+  }
+  return null;
+}
+
+type DeletePermissionUser = {
+  role?: string;
+  modulePermissions?: {
+    movies?: { canDelete?: boolean };
+    tvShows?: { canDelete?: boolean };
+  } | null;
+} | null | undefined;
+
+/**
+ * Movie, series, and episode deletes are admin or superadmin only.
+ * A superadmin bypasses the module flag. An admin still needs canDelete
+ * when that flag is present. Influencers and other staff stay blocked.
+ */
+export function canAdminDeleteTitle(user: DeletePermissionUser, type: "movie" | "series") {
+  if (!user || user.role === "influencer") return false;
+  if (user.role === "superadmin") return true;
+  if (user.role !== "admin") return false;
+  const grant = type === "series" ? user.modulePermissions?.tvShows : user.modulePermissions?.movies;
+  if (!grant || grant.canDelete == null) return true;
+  return Boolean(grant.canDelete);
+}
 
 type RevenuePermissionUser = {
   role?: string;
